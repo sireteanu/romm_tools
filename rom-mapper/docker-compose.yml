@@ -1,0 +1,26 @@
+services:
+  rom-mapper:
+    build: .
+    image: rom-mapper:latest
+    container_name: rom-mapper
+    # Run as the owner of your files (Unraid default: nobody:users = 99:100)
+    user: "${PUID:-99}:${PGID:-100}"
+    ports:
+      - "${WEBUI_PORT:-8085}:8085"
+    environment:
+      TZ: ${TZ:-UTC}
+      CONFIG_DIR: /config
+      # First source folder for the grid until you set the list under "Source folders" in the UI
+      SRC_BASE: ${ROMS_PATH}
+      DEST_PATH: ${MAPPING_PATH}
+      # RomM: the folder RomM reads as its roms folder, until you set it on the RomM tab
+      ROMM_SOURCE: ${ROMM_SOURCE:-}
+    volumes:
+      # The app's settings and mapping (a .bak is kept on every save).
+      - ${CONFIG_DIR}:/config
+      # ONE folder that contains everything rom-mapper uses - the ROM/source folders, the mapping
+      # folder and RomM's download folders - mounted at the SAME path inside the
+      # container as on the host. The links must resolve the same way outside the container.
+      # Pick and change folders in the web UI; no extra mappings needed.
+      - ${EMULATION_ROOT}:${EMULATION_ROOT}
+    restart: unless-stopped

@@ -1,0 +1,1214 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ROM Mapper</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --text: #1d2330; --muted: #667085; --border: #dfe3ea;
+    --accent: #3b5bdb; --accent-text: #fff; --danger: #c92a2a; --ok: #2b8a3e; --warn: #b7791f;
+    --new-bg: #e7f0ff; --missing-bg: #fff1f0; --input-bg: #fff; --hover: #f1f3f7;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12151b; --panel: #1a1e26; --text: #e6e9ef; --muted: #8b93a3; --border: #2c323e;
+      --accent: #5c7cfa; --accent-text: #fff; --danger: #ff6b6b; --ok: #51cf66; --warn: #fcc419;
+      --new-bg: #1c2742; --missing-bg: #3a1d1f; --input-bg: #12151b; --hover: #222834;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 14px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { padding: 16px 20px 8px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  h1 { font-size: 20px; margin: 0; }
+  h1 .ver { font-size: 12px; font-weight: 400; color: var(--muted); text-decoration: none; margin-left: 6px; }
+  h1 .ver:hover { text-decoration: underline; }
+  .paths { color: var(--muted); font-size: 12px; padding: 0 20px; }
+  .paths code { background: var(--panel); border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; }
+  button { font: inherit; border: 1px solid var(--border); background: var(--panel); color: var(--text);
+           border-radius: 6px; padding: 6px 12px; cursor: pointer; white-space: nowrap; }
+  button:hover:not(:disabled) { background: var(--hover); }
+  button:disabled { opacity: .5; cursor: default; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+  button.primary:hover:not(:disabled) { filter: brightness(1.1); background: var(--accent); }
+  button.danger { color: var(--danger); }
+  button.icon { padding: 2px 7px; border-color: transparent; background: transparent; color: var(--muted); }
+  button.icon:hover { color: var(--danger); }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .dirty { color: var(--warn); font-weight: 600; font-size: 13px; }
+  .cards { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.1fr) minmax(0, 1.2fr);
+           gap: 10px; padding: 8px 20px; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; min-width: 0; }
+  .card h3 { margin: 0 0 4px; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  .card .big { font-size: 14px; font-weight: 600; }
+  .card .sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .card .sub a { white-space: nowrap; color: var(--accent); }
+  .ok { color: var(--ok); } .bad { color: var(--danger); } .warn { color: var(--warn); }
+  .settings { display: grid; grid-template-columns: auto 1fr; gap: 2px 6px; align-items: center; font-size: 13px; }
+  .settings input { margin: 0; }
+  .settings input[type=number] { width: 46px; padding: 1px 4px; }
+  .settings select { font: inherit; color: var(--text); background: var(--input-bg); border: 1px solid var(--border);
+                     border-radius: 5px; padding: 1px 2px; }
+  input[type=text], input[type=number], input[type=search] {
+    font: inherit; color: var(--text); background: var(--input-bg); border: 1px solid var(--border);
+    border-radius: 5px; padding: 4px 6px; }
+  input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 4px 20px 10px; }
+  .toolbar input[type=search] { min-width: 220px; flex: 0 1 300px; }
+  .chip { border-radius: 999px; padding: 4px 10px; font-size: 13px; }
+  .chip.active { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+  .spacer { flex: 1; }
+  .table-wrap { margin: 0 20px 20px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+                overflow: auto; max-height: calc(100vh - 120px); }
+  table { border-collapse: separate; border-spacing: 0; width: max-content; min-width: 100%; }
+  th, td { border-bottom: 1px solid var(--border); padding: 4px 6px; text-align: left; vertical-align: middle; }
+  thead th { position: sticky; top: 0; background: var(--panel); z-index: 2; vertical-align: top; padding: 8px 6px; }
+  th.folder, td.folder { position: sticky; left: 0; background: var(--panel); z-index: 1; min-width: 240px; max-width: 320px;
+                         border-right: 1px solid var(--border); }
+  thead th.folder { z-index: 3; }
+  td.folder .name { font-family: ui-monospace, Consolas, monospace; font-size: 13px; word-break: break-all; }
+  tr.new td { background: var(--new-bg); }
+  tr.missing td { background: var(--missing-bg); }
+  td input[type=text] { width: 200px; }
+  td input[type=text]:placeholder-shown { border-style: dashed; }
+  td input.dup { border-color: var(--warn); color: var(--warn); }
+  dialog.srcdlg { max-width: min(760px, 95vw); }
+  .srcdlg .src { display: flex; align-items: center; gap: 8px; border: 1px solid var(--border); border-radius: 6px;
+                 padding: 4px 6px 4px 10px; background: var(--bg); margin-bottom: 4px; }
+  .srcdlg .src .lbl { font-weight: 600; min-width: 70px; }
+  .srcdlg .src code { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
+  .srcdlg .src select { font: inherit; color: var(--text); background: var(--input-bg); border: 1px solid var(--border); border-radius: 5px; padding: 2px 4px; }
+  .srcdlg .src button { padding: 2px 8px; }
+  .srcdlg .add { display: flex; gap: 6px; margin-top: 8px; }
+  .srcdlg .add input { flex: 1; }
+  .srcdlg .foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+  .fe-head { display: flex; flex-direction: column; gap: 4px; width: 200px; }
+  .fe-head .row { display: flex; gap: 4px; align-items: center; }
+  .fe-head .fe-name { font-weight: 600; flex: 1; min-width: 0; }
+  .fe-head label { font-size: 12px; color: var(--muted); display: flex; gap: 4px; align-items: center; }
+  .fe-head input[type=text] { width: 100%; font-size: 12px; }
+  .badge { display: inline-block; font-size: 11px; border-radius: 4px; padding: 0 5px; margin-left: 6px;
+           border: 1px solid currentColor; vertical-align: 1px; }
+  .badge.new { color: var(--accent); } .badge.missing { color: var(--danger); } .badge.unmapped { color: var(--muted); }
+  .empty { padding: 30px; text-align: center; color: var(--muted); }
+  .banner { margin: 8px 20px 0; padding: 8px 12px; border-radius: 6px; background: var(--missing-bg);
+            border: 1px solid var(--danger); }
+  .banner.upd { background: var(--new-bg); border-color: var(--accent); display: flex; flex-wrap: wrap;
+                gap: 8px 12px; align-items: center; }
+  dialog { background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 10px;
+           max-width: min(900px, 92vw); width: 100%; }
+  dialog::backdrop { background: rgba(0,0,0,.45); }
+  pre { white-space: pre-wrap; word-break: break-word; max-height: 60vh; overflow: auto; background: var(--bg);
+        padding: 10px; border-radius: 6px; font-size: 12px; }
+  .log { height: 62px; overflow: auto; font-size: 12px; }
+  .log div { padding: 2px 0; border-bottom: 1px dashed var(--border); overflow-wrap: anywhere; }
+  .log time { color: var(--muted); margin-right: 6px; }
+  #toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: var(--text); color: var(--bg);
+           padding: 8px 14px; border-radius: 6px; opacity: 0; transition: opacity .2s; pointer-events: none; max-width: 90vw; }
+  #toast.show { opacity: 1; }
+  .hint { color: var(--muted); font-size: 12px; }
+  /* ---------- RomM ---------- */
+  .maintabs { display: flex; gap: 4px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 3px; }
+  .maintabs button { border: 0; background: transparent; color: var(--muted); font-weight: 600; padding: 6px 16px; }
+  .maintabs button.on { background: var(--accent); color: var(--accent-text); }
+  .maintabs button:hover:not(.on) { background: var(--hover); color: var(--text); }
+  [hidden] { display: none !important; }
+  #linksActions, #rommActions { margin-left: auto; }
+  .romm .field { grid-template-columns: minmax(0, 1fr); min-width: 0; }
+  .romm .sources, .romm .src, .romm .srcadd input { min-width: 0; }
+  .romm .srcadd { min-width: 0; }
+  #paneRomm { padding: 4px 20px 20px; }
+  #paneRomm .intro { margin-top: 0; }
+  @media (max-width: 640px) { #paneRomm { padding: 4px 12px 12px; } }
+  .romm .head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  .romm .head h2 { margin: 0; font-size: 18px; }
+  .romm .intro { color: var(--muted); font-size: 13px; margin: 6px 0 10px; }
+  .romm .field { display: grid; gap: 3px; margin: 8px 0; font-size: 13px; }
+  .romm .field > span:first-child { font-weight: 600; }
+  .romm .field input[type=text], .romm .field select { width: 100%; }
+  .romm .field small, .romm small { color: var(--muted); font-size: 12px; }
+  .romm .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .romm .box { border: 1px solid var(--border); border-radius: 8px; padding: 6px 12px; margin: 8px 0; background: var(--bg); }
+  .romm .check { display: flex; gap: 6px; align-items: center; font-size: 13px; margin: 4px 0; }
+  .romm select { font: inherit; color: var(--text); background: var(--input-bg); border: 1px solid var(--border);
+                 border-radius: 5px; padding: 4px 6px; }
+  .romm .warnings { margin: 6px 0; padding-left: 18px; font-size: 12.5px; color: var(--warn); }
+  .romm .warnings:empty { display: none; }
+  .romm .grid2 { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); gap: 14px; margin-top: 6px; }
+  .romm .bar { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
+  .romm .bar h3 { font-size: 13.5px; margin: 0 auto 0 0; }
+  .romm .wrap { max-height: 50vh; overflow: auto; border: 1px solid var(--border); border-radius: 6px; }
+  .romm table { width: 100%; }
+  .romm thead th { font-size: 12px; color: var(--muted); }
+  .romm td.p { max-width: 380px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+               font-family: ui-monospace, Consolas, monospace; font-size: 12.5px; }
+  .romm td.n { text-align: right; color: var(--muted); }
+  .romm td.res { white-space: nowrap; font-size: 12.5px; }
+  .romm button.act { width: 210px; font-size: 12.5px; text-align: left; overflow: hidden; text-overflow: ellipsis;
+                      white-space: nowrap; padding: 3px 22px 3px 6px; position: relative; background: var(--input-bg); }
+  .romm button.act::after { content: "▾"; position: absolute; right: 7px; color: var(--muted); }
+  .picker { position: fixed; z-index: 50; width: 340px; max-width: calc(100vw - 16px); background: var(--panel);
+            border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.35); padding: 6px; }
+  .picker input { width: 100%; margin-bottom: 4px; }
+  .picker ul { list-style: none; margin: 0; padding: 0; max-height: 280px; overflow: auto; }
+  .picker li { padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 13px; }
+  .picker li.cur { font-weight: 600; }
+  .picker li.active { background: var(--accent); color: var(--accent-text); }
+  .picker li .fam { color: var(--muted); font-size: 11.5px; margin-left: 6px; }
+  .picker li.active .fam { color: inherit; opacity: .8; }
+  .picker .none { color: var(--muted); padding: 6px 8px; font-size: 12.5px; }
+  .romm .tabs { display: flex; gap: 2px; margin-right: auto; }
+  .romm .tab { font-size: 12.5px; padding: 3px 10px; border-color: transparent; background: transparent; color: var(--muted); }
+  .romm .tab.on { color: var(--text); background: var(--hover); border-color: var(--border); }
+  .romm .ref-btn { border-style: dashed; color: var(--accent); border-color: var(--accent); border-radius: 999px; font-size: 12.5px; }
+  .romm .ref-btn.on { border-style: solid; background: var(--new-bg); }
+  .romm pre { max-height: 50vh; margin: 0; }
+  .romm .ref { border: 1px solid var(--accent); border-left-width: 4px; border-radius: 6px; padding: 8px; }
+  .romm .ref input { width: 100%; margin-bottom: 6px; }
+  .romm .slug { border: 0; background: none; padding: 0; color: var(--accent); font: 12px ui-monospace, Consolas, monospace; }
+  .romm .slug.copied::after { content: " copied"; color: var(--ok); font-family: system-ui, sans-serif; }
+  .romm tr.in-use td:nth-child(2) { font-weight: 600; }
+  .romm .st-ok { color: var(--ok); } .romm .st-warn { color: var(--warn); } .romm .st-bad { color: var(--danger); }
+  .romm .st-none { color: var(--muted); }
+  .romm [hidden] { display: none !important; }
+  #rApply { align-self: start; justify-self: start; }
+  .romm .sources { display: grid; gap: 4px; margin: 2px 0 4px; }
+  .romm .src { display: flex; align-items: center; gap: 8px; border: 1px solid var(--border); border-radius: 6px;
+               padding: 4px 6px 4px 10px; background: var(--bg); }
+  .romm .src .pos { color: var(--muted); font-size: 12px; width: 16px; }
+  .romm .src code { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .romm .src .meta { color: var(--muted); font-size: 12px; white-space: nowrap; }
+  .romm .src button { padding: 2px 8px; }
+  .romm .src select, .romm .srcadd select { width: auto; flex: none; padding: 1px 4px; font-size: 12px; }
+  @media (max-width: 640px) {
+    .romm .src { flex-wrap: wrap; }
+    .romm .src code { flex-basis: calc(100% - 30px); }
+    .romm .src .meta { margin-right: auto; }
+  }
+  .romm .srcadd { display: flex; gap: 6px; }
+  .romm .drop { border: 2px dashed var(--border); border-radius: 8px; padding: 12px; text-align: center; color: var(--muted);
+                 font-size: 13px; cursor: pointer; }
+  .romm .drop.over, .romm .drop:focus { border-color: var(--accent); color: var(--text); background: var(--new-bg); outline: none; }
+  .romm .progress { border: 1px solid var(--accent); border-radius: 6px; padding: 8px 10px; margin: 6px 0; background: var(--new-bg); }
+  .romm .progress .ptext { font-size: 13px; margin-bottom: 6px; overflow-wrap: anywhere; }
+  .romm .progress .pbar { height: 8px; border-radius: 999px; background: var(--border); overflow: hidden; }
+  .romm .progress .pfill { height: 100%; width: 0; background: var(--accent); transition: width .3s; }
+  .romm .progress .pbar.wait .pfill { width: 30% !important; animation: pslide 1.2s ease-in-out infinite; }
+  @keyframes pslide { from { margin-left: -30%; } to { margin-left: 100%; } }
+  @media (prefers-reduced-motion: reduce) { .romm .progress .pfill { transition: none; } .romm .progress .pbar.wait .pfill { animation: none; } }
+  .romm .srcadd input { flex: 1; }
+  .romm tr.root td { font-weight: 600; background: var(--bg); }
+  .romm td.p .tw { border: 0; background: none; padding: 0 4px 0 0; width: 18px; color: var(--muted); font: inherit; cursor: pointer; }
+  .romm td.p .tw:hover { color: var(--accent); }
+  .romm td.p .tw.none { visibility: hidden; cursor: default; }
+  .romm td.p .kids { color: var(--muted); font-family: system-ui, sans-serif; font-size: 11.5px; margin-left: 6px; }
+  .romm #rFind { min-width: 180px; flex: 0 1 260px; }
+  .romm tr.more td { color: var(--muted); font-size: 12.5px; text-align: center; }
+  .romm tr.group td.p { color: var(--muted); }
+  .romm tr.conflict td.p { color: var(--warn); }
+  @media (max-width: 900px) { .romm .grid2, .romm .two { grid-template-columns: minmax(0, 1fr); } }
+  @media (max-width: 900px) { .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 520px) { .cards { grid-template-columns: minmax(0, 1fr); } }
+  @media (max-width: 640px) {
+    header, .toolbar, .cards, .paths { padding-left: 12px; padding-right: 12px; }
+    .table-wrap { margin: 0 12px 12px; }
+    th.folder, td.folder { min-width: 160px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>ROM Mapper <a id="appVersion" class="ver" href="https://github.com/sireteanu/rom-mapper/releases" target="_blank" rel="noopener"></a></h1>
+  <nav class="maintabs" role="tablist" aria-label="Sections">
+    <button role="tab" data-pane="links" aria-selected="true" class="on" title="Folders of links for each frontend">Frontend links</button>
+    <button role="tab" data-pane="romm" aria-selected="false" title="Map download folders to RomM platforms (links + config.yml)">RomM</button>
+  </nav>
+  <div class="actions" id="linksActions">
+    <span id="dirty" class="dirty" hidden>● Unsaved changes</span>
+    <button id="btnScan" title="Re-read the source folders for new or removed folders">Scan now</button>
+    <button id="btnSync" class="danger" title="Make the links in the mapping folder match the saved mapping (only what differs is changed)">Resync all</button>
+    <button id="btnSave" disabled>Save</button>
+    <button id="btnSaveSync" class="primary" disabled>Save &amp; resync</button>
+  </div>
+  <div class="actions" id="rommActions" hidden>
+    <button id="rRefresh" title="Read the download folders again">Refresh</button>
+    <button id="rApply" type="button" title="Remove the platform links older versions made (RomM reads your folders by name now)" hidden>Remove old platform links</button>
+  </div>
+</header>
+<main id="paneLinks">
+<div class="paths" id="paths"></div>
+<div id="banner"></div>
+<div id="updBanner" class="banner upd" role="status" hidden></div>
+
+<section class="cards">
+  <div class="card">
+    <h3>Last scan</h3>
+    <div class="big" id="scanBig">—</div>
+    <div class="sub" id="scanSub"></div>
+  </div>
+  <div class="card">
+    <h3>Last resync</h3>
+    <div class="big" id="syncBig">—</div>
+    <div class="sub" id="syncSub"></div>
+  </div>
+  <div class="card">
+    <h3>Schedule</h3>
+    <div class="settings">
+      <input type="checkbox" id="sScan"><label for="sScan">Scan every <input type="number" id="sScanN" min="1" step="1" aria-label="Scan interval"> <select id="sScanU" aria-label="Scan unit"><option value="minutes">min</option><option value="hours">hours</option><option value="days">days</option></select></label>
+      <input type="checkbox" id="sAuto"><label for="sAuto">Auto-add new folders</label>
+      <input type="checkbox" id="sSync"><label for="sSync">Resync every <input type="number" id="sSyncN" min="1" step="1" aria-label="Resync interval"> <select id="sSyncU" aria-label="Resync unit"><option value="minutes">min</option><option value="hours">hours</option><option value="days">days</option></select></label>
+    </div>
+    <div class="sub" id="nextRuns"></div>
+  </div>
+  <div class="card">
+    <h3>Activity</h3>
+    <div class="log" id="log"></div>
+  </div>
+</section>
+
+<div class="toolbar">
+  <input type="search" id="search" placeholder="Search folders or mappings…">
+  <div id="filters" class="actions"></div>
+  <span class="spacer"></span>
+  <span id="dupNote" class="warn" hidden></span>
+  <button id="btnSources" title="Which folders the grid reads, and how deep">Source folders</button>
+  <button id="btnRemoveMissing" hidden class="danger">Remove missing rows</button>
+  <button id="btnAddFolder">+ Folder</button>
+  <button id="btnAddFe">+ Frontend</button>
+</div>
+<div class="hint" style="padding: 0 20px 6px">Tip: double-click an empty cell to fill it with the folder name. Blank cell = no link for that frontend.</div>
+
+<div class="table-wrap"><table id="grid"></table></div>
+</main>
+
+<main id="paneRomm" class="romm" hidden>
+  <p class="intro">Pick the RomM platform for each of your folders. Each folder with a platform becomes a
+    <b>volume</b> of RomM's container, mounted as <code>roms/&lt;platform&gt;</code> (<code>amigacdtv</code> &rarr;
+    <code>roms/commodore-cdtv</code>): paste the <b>RomM volumes</b> into RomM's compose file and Compose Up RomM.
+    Subfolders that belong to a platform (<code>gbc/+translations</code>) become categories in <code>config.yml</code>.
+    Nothing is moved or copied. After a change, paste both again and scan RomM's library.</p>
+  <div class="field"><span>Download folders</span>
+    <div id="rSources" class="sources"></div>
+    <div class="srcadd"><input type="text" id="rSourceNew" placeholder="/path/to/downloads">
+      <select id="rSourceDepth" aria-label="Folder levels to list for the new folder" title="How many folder levels to list"><option value="0">All levels</option><option value="1">1 level</option><option value="2">2 levels</option><option value="3">3 levels</option><option value="4">4 levels</option><option value="5">5 levels</option><option value="6">6 levels</option></select>
+      <button id="rSourceAdd" type="button">Add folder</button></div>
+    <div id="rProgress" class="progress" role="status" hidden>
+      <div class="ptext"></div>
+      <div class="pbar" role="progressbar" aria-label="Reading the download folders" aria-valuemin="0" aria-valuemax="100"><div class="pfill"></div></div>
+    </div>
+    <small>Any folder in these download folders can be a platform, also nested ones
+      (<code>Nintendo/Super Famicom</code>). When two folders get the same platform, the one named like it wins.
+      <b>Levels</b>: how deep the list goes. <b>1 level</b> suits a folder with one folder per system (everything inside a
+      system goes with it and isn't read, which is much faster); more levels show the subfolders, e.g. to exclude some.
+      Folders must be mounted into this container at the same path.</small></div>
+  <p id="rError" class="bad" hidden></p>
+  <p id="rApplied" class="hint" hidden></p>
+  <div class="field"><span>Import a RomM mapping (CSV)</span>
+    <div id="rDrop" class="drop" tabindex="0" role="button" aria-label="Import a RomM mapping CSV: drop the file here or press Enter to pick it">
+      Drop <code>Rom_Mapping_RomM.csv</code> here, or click to pick it
+      <input type="file" id="rDropFile" accept=".csv,text/csv" hidden></div>
+    <small>One-time import of the old <code>Folder,romm</code> file: each folder gets its RomM platform; rows without a
+      platform stay out of RomM. Saved straight away.</small></div>
+  <label class="field"><span>Never read folders named</span>
+    <input type="text" id="rSkip" placeholder="media, Extras">
+    <small>Comma-separated folder names; <code>*</code> and <code>?</code> work (<code>*.bak</code>), case doesn't matter.
+      These folders are skipped in every download folder - not read, not listed - and RomM is told to ignore them too.</small></label>
+  <ul id="rWarn" class="warnings"></ul>
+  <div class="grid2">
+    <section>
+      <div class="bar"><h3 id="rCount">Folders</h3>
+        <input type="search" id="rFind" placeholder="Find a folder…" aria-label="Find a folder">
+        <select id="rFilter" aria-label="Show"></select>
+        </div>
+      <div class="wrap"><table><thead><tr><th>Folder</th><th title="Files directly in the folder. For a download folder set to fewer levels, the folders on its last level also count their subfolders.">Files</th><th>RomM platform</th><th>Result</th></tr></thead>
+        <tbody id="rBody"></tbody></table></div>
+      <p class="hint">Pick the RomM platform for a folder, or <b>exclude</b> to leave it out of RomM. A subfolder with the
+        same platform as its parent (like T-En under snes) is part of that platform. Every choice is saved right away.</p>
+    </section>
+    <section>
+      <div class="bar">
+        <div class="tabs"><button class="tab on" data-out="config">config.yml</button><button class="tab" data-out="volumes">RomM volumes</button></div>
+        <button id="rCopy">Copy</button>
+        <button class="ref-btn" data-out="list" title="Every platform RomM knows">RomM platforms list</button>
+      </div>
+      <p id="rHelp" class="hint"></p>
+      <pre id="rOut"></pre>
+      <div id="rList" class="ref" hidden>
+        <div class="hint" style="margin-bottom:6px"><b>Reference</b> - every platform RomM knows. Click a name to copy it.</div>
+        <input type="search" id="rListFind" placeholder="Find a platform, e.g. famicom or Sega">
+        <div class="wrap"><table><thead><tr><th>RomM platform</th><th>Name</th><th>Maker</th><th>Your folders</th></tr></thead>
+          <tbody id="rListBody"></tbody></table></div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<dialog id="outDialog">
+  <h3 style="margin-top:0">Last resync output</h3>
+  <pre id="outPre"></pre>
+  <form method="dialog" style="text-align:right"><button>Close</button></form>
+</dialog>
+
+<dialog id="srcDlg" class="srcdlg">
+  <h3 style="margin-top:0">Source folders</h3>
+  <p class="hint">The folders the grid reads. Rows show the folder's name in front (<code>roms/snes</code>,
+    <code>downloads/Nintendo/Super Famicom</code>). <b>Depth</b>: 1 = the folders directly inside it, 2 = also the folders
+    inside those, and so on. Folders named <code>media</code> are skipped (use "link media/ folders").
+    Everything must be inside the folder mounted into the container.</p>
+  <div id="srcList"></div>
+  <div class="add"><input type="text" id="srcNew" placeholder="/path/to/roms"><button id="srcAdd" type="button">Add folder</button></div>
+  <p id="srcErr" class="bad" hidden></p>
+  <div class="foot"><button id="srcCancel" type="button">Cancel</button><button id="srcSave" class="primary" type="button">Save &amp; scan</button></div>
+</dialog>
+
+
+<div id="toast"></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const STATUS_LABEL = { mapped: "Mapped", unmapped: "Unmapped", new: "New", missing: "Missing" };
+
+let model = null;          // { frontends, rows, version, ... }
+let dirty = false;
+let filter = "all";
+let syncPoll = null;
+
+async function api(method, url, body) {
+  const res = await fetch(url, { method, headers: { "Content-Type": "application/json" },
+                                 body: body ? JSON.stringify(body) : undefined });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) { const e = new Error(data.error || res.statusText); e.status = res.status; e.data = data; throw e; }
+  return data;
+}
+
+function toast(msg, ms = 3000) {
+  const t = $("toast"); t.textContent = msg; t.classList.add("show");
+  clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove("show"), ms);
+}
+
+function ago(iso) {
+  if (!iso) return "never";
+  const s = (Date.now() - new Date(iso).getTime()) / 1000;
+  if (s < 60) return "just now";
+  if (s < 3600) return `${Math.round(s / 60)} min ago`;
+  if (s < 86400) return `${Math.round(s / 3600)} h ago`;
+  return new Date(iso).toLocaleString();
+}
+function inFuture(ms) {
+  if (ms <= 0) return "due now";
+  const m = ms / 60000;
+  if (m < 60) return `in ${Math.round(m)} min`;
+  if (m < 48 * 60) return `in ${(m / 60).toFixed(1)} h`;
+  return `in ${(m / 1440).toFixed(1)} days`;
+}
+
+function setDirty(v) {
+  dirty = v;
+  $("dirty").hidden = !v;
+  $("btnSave").disabled = !v;
+  $("btnSaveSync").disabled = !v;
+}
+
+// ------------------------------------------------------------- loading
+
+async function load({ keepEdits = false } = {}) {
+  const data = await api("GET", "/api/state");
+  if (keepEdits && dirty && model) {
+    Object.assign(model, { settings: data.settings, last_scan: data.last_scan, last_sync: data.last_sync,
+                           sync_running: data.sync_running, disk_error: data.disk_error, sources: data.sources,
+                           paths: data.paths, app_version: data.app_version });
+  } else {
+    model = data;
+    setDirty(false);
+    renderGrid();
+  }
+  renderMeta();
+  if (model.sync_running) watchSync();
+}
+
+let pageVersion = null;    // the version this page was loaded with; the server may be updated later
+function renderMeta() {
+  const p = model.paths;
+  if (model.app_version) {
+    pageVersion ??= model.app_version;
+    const v = pageVersion;    // the page shows its own version, not the server's
+    $("appVersion").textContent = "v" + v;
+    $("appVersion").href = `https://github.com/sireteanu/rom-mapper/releases/tag/v${v}`;
+    const box = $("updBanner");
+    if (model.app_version !== pageVersion && box.hidden) {
+      box.innerHTML = `ROM Mapper was updated to <b>v${esc(model.app_version)}</b> - this page is still v${esc(pageVersion)}. ` +
+        `<button type="button" class="primary">Reload the page</button>`;
+      box.querySelector("button").onclick = () => {
+        if (dirty && !confirm("You have unsaved changes in the grid. Reload anyway and lose them?")) return;
+        location.reload();
+      };
+      box.hidden = false;
+    }
+  }
+  $("paths").innerHTML = `Saved in <code>${esc(p.store)}</code> · ROMs ` +
+    (model.sources || []).map(x => `<code title="${esc(x.path)}">${esc(x.label)}: ${esc(x.path)} (${x.depth} deep)</code>`).join(" ") +
+    ` · Links <code>${esc(p.dest)}</code>`;
+  $("banner").innerHTML = model.disk_error ? `<div class="banner">${esc(model.disk_error)}</div>` : "";
+
+  const sc = model.last_scan;
+  if (sc) {
+    $("scanBig").innerHTML = sc.ok ? `<span class="ok">✓</span> ${esc(ago(sc.time))}` : `<span class="bad">✗ failed</span> ${esc(ago(sc.time))}`;
+    $("scanSub").textContent = sc.ok
+      ? `${sc.total} folders · ${sc.new.length} new${sc.added ? ` (${sc.added} added)` : ""} · ${sc.missing.length} missing`
+      : sc.error;
+  }
+  const sy = model.last_sync;
+  if (model.sync_running) {
+    $("syncBig").innerHTML = `<span class="warn">⟳ running…</span>`;
+  } else if (sy) {
+    $("syncBig").innerHTML = (sy.ok ? `<span class="ok">✓</span> ` : `<span class="bad">✗ failed</span> `) + esc(ago(sy.time));
+  }
+  if (sy) $("syncSub").innerHTML = `${esc(sy.trigger)} · ${sy.seconds}s · <a href="#" id="viewOut">view output</a>`;
+  const v = $("viewOut"); if (v) v.onclick = (e) => { e.preventDefault(); $("outPre").textContent = model.last_sync.output || "(no output)"; $("outDialog").showModal(); };
+  $("btnSync").disabled = model.sync_running;
+
+  const s = model.settings;
+  if (!document.activeElement?.closest?.(".settings")) {   // don't overwrite what you're typing
+    $("sScan").checked = s.scan_enabled; $("sScanN").value = s.scan_every; $("sScanU").value = s.scan_unit;
+    $("sAuto").checked = s.auto_add_new;
+    $("sSync").checked = s.sync_enabled; $("sSyncN").value = s.sync_every; $("sSyncU").value = s.sync_unit;
+  }
+  const next = [];
+  if (s.scan_enabled) next.push(`next scan ${inFuture(new Date(sc?.time || 0).getTime() + everyMs(s, "scan") - Date.now())}`);
+  if (s.sync_enabled) next.push(`next resync ${inFuture(new Date(sy?.time || 0).getTime() + everyMs(s, "sync") - Date.now())}`);
+  $("nextRuns").textContent = next.join(" · ") || "Schedules are off";
+}
+
+async function loadActivity() {
+  const items = await api("GET", "/api/activity").catch(() => []);
+  $("log").innerHTML = items.map(i => `<div><time>${esc(new Date(i.time).toLocaleTimeString())}</time>${esc(i.msg)}</div>`).join("")
+    || `<div class="hint">Nothing yet</div>`;
+}
+
+// ------------------------------------------------------------- grid
+
+function renderGrid() {
+  const fes = model.frontends;
+  let head = `<thead><tr><th class="folder">Folder</th>`;
+  fes.forEach((f, i) => {
+    head += `<th><div class="fe-head">
+      <div class="row"><input type="text" class="fe-name" data-fe="${i}" data-k="name" value="${esc(f.name)}" title="Frontend / output folder name">
+        <button class="icon" data-delfe="${i}" title="Remove this frontend column">✕</button></div>
+      <label><input type="checkbox" data-fe="${i}" data-k="media_toggle" ${f.media_toggle === "1" ? "checked" : ""}> link media/ folders</label>
+      <input type="text" data-fe="${i}" data-k="media_location" value="${esc(f.media_location)}" placeholder="media location (MEDIA_FULL)" ${f.media_toggle === "1" ? "" : "hidden"}>
+    </div></th>`;
+  });
+  head += `<th></th></tr></thead>`;
+
+  let body = "<tbody>";
+  model.rows.forEach((r, ri) => {
+    body += `<tr class="${r.status}" data-ri="${ri}"><td class="folder"><span class="name">${esc(r.folder)}</span>` +
+      (r.status !== "mapped" ? `<span class="badge ${r.status}">${STATUS_LABEL[r.status]}</span>` : "") + `</td>`;
+    fes.forEach((f, fi) => {
+      body += `<td><input type="text" data-ri="${ri}" data-fi="${fi}" value="${esc(r.values[fi])}" placeholder="—"></td>`;
+    });
+    body += `<td><button class="icon" data-delrow="${ri}" title="Remove this row from the mapping">✕</button></td></tr>`;
+  });
+  body += "</tbody>";
+  $("grid").innerHTML = model.rows.length || fes.length ? head + body
+    : `<tbody><tr><td class="empty">No folders yet. Click “Scan now” or “+ Folder”.</td></tr></tbody>`;
+  applyFilter();
+  markDuplicates();
+}
+
+// two rows giving the same name to one frontend: only the first gets the link
+function markDuplicates() {
+  const inputs = document.querySelectorAll("#grid tbody input[data-fi]");
+  const seen = {};
+  let n = 0;
+  inputs.forEach(inp => {
+    inp.classList.remove("dup"); inp.removeAttribute("title");
+    const v = inp.value.trim(); if (!v) return;
+    const key = inp.dataset.fi + "\u0000" + v.toLowerCase();
+    if (key in seen) {
+      inp.classList.add("dup"); n++;
+      inp.title = `Also given to ${model.rows[seen[key]].folder} above - only the first row gets this link`;
+    } else seen[key] = +inp.dataset.ri;
+  });
+  $("dupNote").hidden = !n;
+  $("dupNote").textContent = n ? `⚠ ${n} duplicate name${n > 1 ? "s" : ""} (orange) - only the first row gets the link` : "";
+}
+
+function rowStatus(r) {
+  if (r.status === "missing" || r.status === "new") return r.status;
+  return r.values.some(v => v) ? "mapped" : "unmapped";
+}
+
+function applyFilter({ recountOnly = false } = {}) {
+  const q = $("search").value.trim().toLowerCase();
+  const counts = { all: 0, mapped: 0, unmapped: 0, new: 0, missing: 0 };
+  document.querySelectorAll("#grid tbody tr[data-ri]").forEach(tr => {
+    const r = model.rows[+tr.dataset.ri];
+    const st = rowStatus(r);
+    counts.all++; counts[st]++;
+    const matchQ = !q || r.folder.toLowerCase().includes(q) || r.values.some(v => v.toLowerCase().includes(q));
+    if (!recountOnly) tr.hidden = !(matchQ && (filter === "all" || filter === st));
+  });
+  $("filters").innerHTML = ["all", "mapped", "unmapped", "new", "missing"].map(k =>
+    `<button class="chip ${filter === k ? "active" : ""}" data-filter="${k}">${k === "all" ? "All" : STATUS_LABEL[k]} ${counts[k]}</button>`).join("");
+  $("btnRemoveMissing").hidden = counts.missing === 0;
+}
+
+$("grid").addEventListener("input", (e) => {
+  const t = e.target;
+  if (t.dataset.fi !== undefined) {
+    const r = model.rows[+t.dataset.ri];
+    r.values[+t.dataset.fi] = t.value;
+    if (r.status !== "missing" && r.status !== "new") r.status = rowStatus(r);
+    setDirty(true);
+    markDuplicates();
+  } else if (t.dataset.fe !== undefined) {
+    const f = model.frontends[+t.dataset.fe];
+    if (t.type === "checkbox") {
+      f.media_toggle = t.checked ? "1" : "0";
+      t.closest(".fe-head").querySelector('[data-k="media_location"]').hidden = !t.checked;
+    } else f[t.dataset.k] = t.value;
+    setDirty(true);
+  }
+});
+// Editing only updates the counts; rows stay put until the filter/search changes.
+$("grid").addEventListener("change", (e) => { if (e.target.dataset.fi !== undefined) applyFilter({ recountOnly: true }); });
+$("grid").addEventListener("dblclick", (e) => {
+  const t = e.target;
+  if (t.dataset.fi !== undefined && !t.value) {
+    t.value = model.rows[+t.dataset.ri].folder;
+    t.dispatchEvent(new Event("input", { bubbles: true }));
+    applyFilter({ recountOnly: true });
+  }
+});
+$("grid").addEventListener("click", (e) => {
+  const t = e.target.closest("button"); if (!t) return;
+  if (t.dataset.delrow !== undefined) {
+    const r = model.rows[+t.dataset.delrow];
+    if (r.values.some(v => v) && !confirm(`Remove "${r.folder}" and its mappings?`)) return;
+    model.rows.splice(+t.dataset.delrow, 1); setDirty(true); renderGrid();
+  } else if (t.dataset.delfe !== undefined) {
+    const i = +t.dataset.delfe;
+    if (!confirm(`Remove the "${model.frontends[i].name}" column and all its mappings?`)) return;
+    model.frontends.splice(i, 1); model.rows.forEach(r => r.values.splice(i, 1)); setDirty(true); renderGrid();
+  }
+});
+$("filters").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-filter]"); if (!b) return;
+  filter = b.dataset.filter; applyFilter();
+});
+$("search").addEventListener("input", applyFilter);
+
+$("btnAddFolder").onclick = () => {
+  const first = (model.sources || [])[0];
+  const name = prompt(`Folder, with its source folder's name in front - for example ${first ? first.label : "roms"}/snes` +
+    ((model.sources || []).length > 1 ? ` (source folders: ${model.sources.map(x => x.label).join(", ")})` : "") + ":");
+  if (!name || !name.trim()) return;
+  if (model.rows.some(r => r.folder === name.trim())) return toast("That folder is already in the list.");
+  model.rows.push({ folder: name.trim(), values: model.frontends.map(() => ""), status: "unmapped" });
+  setDirty(true); renderGrid();
+  $("search").value = name.trim(); applyFilter();
+};
+$("btnAddFe").onclick = () => {
+  const name = prompt("New frontend name (becomes a folder under the mapping folder):");
+  if (!name || !name.trim()) return;
+  if (model.frontends.some(f => f.name === name.trim())) return toast("That frontend already exists.");
+  model.frontends.push({ name: name.trim(), media_toggle: "0", media_location: "" });
+  model.rows.forEach(r => r.values.push(""));
+  setDirty(true); renderGrid();
+  document.querySelector(".table-wrap").scrollLeft = 1e6;
+};
+$("btnRemoveMissing").onclick = () => {
+  const n = model.rows.filter(r => r.status === "missing").length;
+  if (!confirm(`Remove ${n} row(s) whose folder no longer exists on disk?`)) return;
+  model.rows = model.rows.filter(r => r.status !== "missing"); setDirty(true); renderGrid();
+};
+
+// ------------------------------------------------------------- actions
+
+async function save(resync) {
+  const payload = { version: model.version, resync,
+    frontends: model.frontends, rows: model.rows.map(r => ({ folder: r.folder, values: r.values })) };
+  try {
+    let res;
+    try { res = await api("PUT", "/api/mapping", payload); }
+    catch (e) {
+      if (e.status !== 409) throw e;
+      if (!confirm("The mapping changed on the server since you loaded it (for example a scheduled scan added folders).\n\nOverwrite it with your version? New folders will show up again on the next scan.")) return;
+      res = await api("PUT", "/api/mapping", { ...payload, force: true });
+    }
+    toast(resync ? "Saved. Resync started." : "Saved.");
+    setDirty(false);
+    await load();
+    if (res.sync_started) watchSync();
+  } catch (e) {
+    alert(e.message + (e.data?.details ? "\n\n• " + e.data.details.join("\n• ") : ""));
+  }
+  loadActivity();
+}
+$("btnSave").onclick = () => save(false);
+$("btnSaveSync").onclick = () => save(true);
+
+$("btnScan").onclick = async () => {
+  if (dirty && !confirm("You have unsaved changes. Scanning reloads the table and discards them. Continue?")) return;
+  $("btnScan").disabled = true;
+  try {
+    const r = await api("POST", "/api/scan");
+    toast(r.ok ? `Scan done: ${r.new.length} new, ${r.missing.length} missing` : `Scan failed: ${r.error}`);
+    await load();
+  } catch (e) { alert(e.message); }
+  $("btnScan").disabled = false;
+  loadActivity();
+};
+
+$("btnSync").onclick = async () => {
+  const msg = dirty ? "\n\nNote: you have UNSAVED changes. Resync uses the saved mapping. Use “Save & resync” to include them." : "";
+  if (!confirm(`Bring every link under ${model.paths.dest} in line with the saved mapping? Missing links are made, wrong ones corrected and unused ones removed.${msg}`)) return;
+  try { await api("POST", "/api/sync"); toast("Resync started."); watchSync(); }
+  catch (e) { alert(e.message); }
+};
+
+function watchSync() {
+  if (syncPoll) return;
+  model.sync_running = true; renderMeta();
+  syncPoll = setInterval(async () => {
+    const s = await api("GET", "/api/sync").catch(() => null);
+    if (!s || s.running) return;
+    clearInterval(syncPoll); syncPoll = null;
+    model.sync_running = false; model.last_sync = s.last_sync; renderMeta(); loadActivity();
+    toast(s.last_sync?.ok ? "Resync finished." : "Resync FAILED. See output.", 5000);
+  }, 2000);
+}
+
+const UNIT_MS = { minutes: 60000, hours: 3600000, days: 86400000 };
+function everyMs(s, kind) { return s[`${kind}_every`] * (UNIT_MS[s[`${kind}_unit`]] || 3600000); }
+
+let settingsSeq = 0;      // only the newest save's answer is shown (changes save one by one)
+async function saveSettings() {
+  const mine = ++settingsSeq;
+  const body = { scan_enabled: $("sScan").checked, scan_every: $("sScanN").value, scan_unit: $("sScanU").value,
+                 auto_add_new: $("sAuto").checked,
+                 sync_enabled: $("sSync").checked, sync_every: $("sSyncN").value, sync_unit: $("sSyncU").value };
+  try {
+    const r = await api("PUT", "/api/settings", body);
+    if (mine !== settingsSeq) return;
+    model.settings = r.settings; renderMeta(); toast("Schedule saved.");
+  } catch (e) {
+    if (mine !== settingsSeq) return;
+    alert(e.message); document.activeElement?.blur?.(); renderMeta();
+  }
+  loadActivity();
+}
+["sScan", "sAuto", "sSync", "sScanN", "sScanU", "sSyncN", "sSyncU"].forEach(id => $(id).addEventListener("change", saveSettings));
+
+window.addEventListener("beforeunload", (e) => { if (dirty) { e.preventDefault(); e.returnValue = ""; } });
+
+// Refresh periodically to pick up scheduled scans/resyncs (keeps your edits if you have any).
+// A hidden tab doesn't refresh (no disk reads while nobody looks); coming back refreshes at once.
+function refreshNow() { load({ keepEdits: true }).catch(() => {}); loadActivity(); }
+setInterval(() => { if (!document.hidden) refreshNow(); }, 30000);
+let hiddenAt = 0;
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) { hiddenAt = Date.now(); return; }
+  if (Date.now() - hiddenAt > 30000) refreshNow();
+});
+
+// ------------------------------------------------------------- source folders
+let srcEdit = [];
+function renderSources() {
+  const box = $("srcList"); box.innerHTML = "";
+  srcEdit.forEach((x, i) => {
+    const div = document.createElement("div"); div.className = "src";
+    div.innerHTML = `<span class="lbl"></span><code></code>
+      <label class="hint">Depth <select>${[1, 2, 3, 4, 5, 6].map(n => `<option>${n}</option>`).join("")}</select></label>
+      <button type="button" data-up title="Move up">↑</button><button type="button" data-down title="Move down">↓</button>
+      <button type="button" data-del title="Stop reading this folder (nothing is deleted)">✕</button>`;
+    div.querySelector(".lbl").textContent = x.label || "(new)";
+    div.querySelector("code").textContent = x.path; div.querySelector("code").title = x.path;
+    const sel = div.querySelector("select"); sel.value = String(x.depth || 1);
+    sel.onchange = () => { x.depth = +sel.value; };
+    div.querySelector("[data-up]").disabled = i === 0;
+    div.querySelector("[data-down]").disabled = i === srcEdit.length - 1;
+    div.querySelector("[data-up]").onclick = () => { srcEdit.splice(i - 1, 0, srcEdit.splice(i, 1)[0]); renderSources(); };
+    div.querySelector("[data-down]").onclick = () => { srcEdit.splice(i + 1, 0, srcEdit.splice(i, 1)[0]); renderSources(); };
+    div.querySelector("[data-del]").onclick = () => { srcEdit.splice(i, 1); renderSources(); };
+    box.append(div);
+  });
+  if (!srcEdit.length) box.innerHTML = `<div class="hint">No source folder - add one below.</div>`;
+}
+$("btnSources").onclick = () => {
+  srcEdit = (model.sources || []).map(x => ({ ...x }));
+  $("srcErr").hidden = true; renderSources(); $("srcDlg").showModal();
+};
+const srcAdd = () => {
+  const v = $("srcNew").value.trim(); if (!v) return;
+  srcEdit.push({ path: v, depth: 2, label: "" }); $("srcNew").value = ""; renderSources();
+};
+$("srcAdd").onclick = srcAdd;
+$("srcNew").addEventListener("keydown", (e) => { if (e.key === "Enter") srcAdd(); });
+$("srcCancel").onclick = () => $("srcDlg").close();
+$("srcSave").onclick = async () => {
+  if (dirty && !confirm("You have unsaved changes in the grid. Scanning reloads it and discards them. Continue?")) return;
+  try {
+    await api("PUT", "/api/sources", { sources: srcEdit.map(x => ({ path: x.path, depth: x.depth || 1 })) });
+    $("srcDlg").close();
+    const r = await api("POST", "/api/scan");
+    toast(r.ok ? `Scan done: ${r.new.length} new, ${r.missing.length} missing` : `Scan failed: ${r.error}`);
+    await load(); loadActivity();
+  } catch (e) { $("srcErr").textContent = e.message; $("srcErr").hidden = false; }
+};
+
+// ------------------------------------------------------------- RomM
+(() => {
+  const q = (sel, el = document) => el.querySelector(sel);
+  const num = (n) => (n || 0).toLocaleString();
+  const HELP = {
+    config: "Merge into RomM's config.yml (in its /romm/config folder), keeping your other settings, then restart RomM.",
+    volumes: "For RomM's compose file: the RomM service's volumes - replace its own .../romm/library/roms line with these. Docker mounts them when RomM starts; after a change, paste them again and Compose Up RomM.",
+  };
+  let R = null, tab = "config", outTab = "config";
+  const pending = {};
+
+  const label = (v) => v === "exclude" ? "exclude - leave out of RomM" : v === "firmware" ? "firmware (automatic)"
+    : v === "" ? "- pick a platform -" : v.startsWith("cat:") ? `${label(v.slice(4))} · categories`
+    : (() => { const p = R.slugs.find(x => x.slug === v); return p ? `${v} - ${p.name}` : `${v} (custom)`; })();
+  // what a typed name becomes as a platform: lowercase, spaces -> "-" (RomM slugs look like that)
+  const asSlug = (text) => text.trim().toLowerCase().replace(/\s+/g, "-");
+  const SLUG_OK = /^[a-z0-9][a-z0-9_.-]*$/;
+  // ---- the platform picker: one searchable list, opened from a row's button
+  const pk = { el: null, row: null, btn: null, cur: "", items: [], shown: [], active: 0 };
+  function pickerChoices(r, cur) {
+    const out = [];
+    if (r.action) out.push({ v: "", t: r.auto ? `automatic: ${label(r.auto)}` : "no platform (remove your choice)", k: "automatic remove clear" });
+    else if (cur === "") out.push({ v: "", t: label(""), k: "pick" });
+    if (cur === "firmware" || r.auto === "firmware") out.push({ v: "firmware", t: label("firmware"), k: "firmware bios" });
+    out.push({ v: "exclude", t: label("exclude"), k: "exclude leave out skip" });
+    // custom platforms already used by other folders (RomM adds them without metadata)
+    const known = new Set(R.slugs.map(p => p.slug));
+    for (const slug of [...new Set((R.platforms || []).map(p => p.slug))].filter(x => !known.has(x)).sort())
+      out.push({ v: slug, t: slug, fam: "custom", k: `${slug} custom` });
+    for (const p of R.slugs) out.push({ v: p.slug, t: `${p.slug} - ${p.name}`, fam: p.family, k: `${p.slug} ${p.name} ${p.family}`.toLowerCase() });
+    if (cur && !out.some(o => o.v === cur)) out.push({ v: cur, t: label(cur), k: cur.toLowerCase() });
+    return out;
+  }
+  function pickerList() {
+    const words = q("input", pk.el).value.toLowerCase().split(/\s+/).filter(Boolean);
+    pk.shown = pk.items.filter(o => words.every(w => o.k.includes(w) || o.t.toLowerCase().includes(w)));
+    // a name that isn't a platform yet: offer it as a custom one (at the end, or alone)
+    const typed = asSlug(q("input", pk.el).value);
+    if (typed && SLUG_OK.test(typed) && !pk.items.some(o => o.v === typed))
+      pk.shown.push({ v: typed, t: `Use "${typed}" as a custom platform`, fam: "RomM adds it without metadata", k: typed });
+    pk.active = Math.max(0, Math.min(pk.active, pk.shown.length - 1));
+    const ul = q("ul", pk.el); ul.innerHTML = "";
+    pk.shown.forEach((o, i) => {
+      const li = document.createElement("li");
+      li.id = "rPickOpt" + i; li.setAttribute("role", "option"); li.textContent = o.t;
+      if (o.fam) { const f = document.createElement("span"); f.className = "fam"; f.textContent = o.fam; li.append(f); }
+      li.classList.toggle("cur", o.v === pk.cur);
+      li.classList.toggle("active", i === pk.active);
+      li.setAttribute("aria-selected", String(i === pk.active));
+      li.onpointerdown = (e) => { e.preventDefault(); pickerChoose(o.v); };
+      ul.append(li);
+    });
+    if (!pk.shown.length) ul.innerHTML = `<li class="none">No platform matches. A custom platform name uses a-z, 0-9, - _ and . only.</li>`;
+    q("input", pk.el).setAttribute("aria-activedescendant", pk.shown.length ? "rPickOpt" + pk.active : "");
+    const act = ul.children[pk.active]; if (act && act.scrollIntoView) act.scrollIntoView({ block: "nearest" });
+  }
+  function pickerClose(refocus) {
+    if (!pk.el || pk.el.hidden) return;
+    pk.el.hidden = true;
+    if (refocus && pk.btn && pk.btn.isConnected) pk.btn.focus();
+  }
+  let focusPath = null;            // the row whose button gets the focus back after a choice
+  function pickerChoose(v) {
+    const r = pk.row; pickerClose(true); focusPath = r && r.path;
+    if (!r || v === pk.cur) return;
+    // the built-in result or "firmware" means: no choice of your own
+    save(r.path, v === r.auto || v === "firmware" ? "" : v, v === "" ? r.auto : v);
+  }
+  function openPicker(btn, r, cur) {
+    if (!pk.el) {
+      pk.el = document.createElement("div"); pk.el.className = "picker"; pk.el.hidden = true;
+      pk.el.setAttribute("role", "dialog");
+      pk.el.innerHTML = `<input type="search" placeholder="Search: snes, nintendo, sega, exclude…" role="combobox"
+        aria-expanded="true" aria-controls="rPickList" aria-label="Search RomM platforms"><ul id="rPickList" role="listbox"></ul>`;
+      $("paneRomm").append(pk.el);
+      const inp = q("input", pk.el);
+      inp.addEventListener("input", () => { pk.active = 0; pickerList(); });
+      inp.addEventListener("keydown", (e) => {
+        if (e.key === "ArrowDown") { pk.active = Math.min(pk.active + 1, pk.shown.length - 1); pickerList(); e.preventDefault(); }
+        else if (e.key === "ArrowUp") { pk.active = Math.max(pk.active - 1, 0); pickerList(); e.preventDefault(); }
+        else if (e.key === "Enter") { if (pk.shown[pk.active]) pickerChoose(pk.shown[pk.active].v); e.preventDefault(); }
+        else if (e.key === "Escape") { pickerClose(true); e.preventDefault(); }
+        else if (e.key === "Tab") pickerClose(false);
+      });
+      document.addEventListener("pointerdown", (e) => { if (!pk.el.hidden && !pk.el.contains(e.target) && e.target !== pk.btn) pickerClose(false); });
+      window.addEventListener("resize", () => pickerClose(false));
+      document.addEventListener("scroll", (e) => { if (!pk.el.contains(e.target)) pickerClose(false); }, true);
+    }
+    if (!pk.el.hidden && pk.btn === btn) { pickerClose(true); return; }
+    Object.assign(pk, { row: r, btn, cur, items: pickerChoices(r, cur) });
+    const inp = q("input", pk.el); inp.value = "";
+    pk.active = Math.max(0, pk.items.findIndex(o => o.v === cur));
+    pk.el.hidden = false;
+    const b = btn.getBoundingClientRect(), w = Math.min(340, innerWidth - 16);
+    pk.el.style.left = Math.max(8, Math.min(b.left, innerWidth - w - 8)) + "px";
+    if (innerHeight - b.bottom < 340 && b.top > innerHeight - b.bottom) {
+      pk.el.style.top = ""; pk.el.style.bottom = (innerHeight - b.top + 2) + "px";
+    } else { pk.el.style.bottom = ""; pk.el.style.top = (b.bottom + 2) + "px"; }
+    pickerList();
+    inp.focus();
+  }
+  function result(r) {
+    if (r.kind === "platform") {
+      if (!r.used) return [`${r.slug} (no files yet)`, "warn"];
+      const p = (R.platforms || []).find(x => x.mount === r.path);
+      return [`mounted as roms/${r.slug}` + (p && p.categories ? ", subfolders are categories" : ""), r.custom ? "warn" : "ok"];
+    }
+    if (r.kind === "merge") return [r.category ? `category of ${r.slug}` : r.used ? `part of ${r.slug}` : `part of ${r.slug} (no files yet)`, "ok"];
+    if (r.kind === "bios") return [`firmware: bios/${r.slug}`, "ok"];
+    if (r.kind === "skip") return ["left out of RomM", "none"];
+    return ["no platform", "bad"];
+  }
+  let show = "all";
+  // folders whose open/closed state differs from the default (download folders open, others closed)
+  let toggled = new Set();
+  try { toggled = new Set(JSON.parse(localStorage.getItem("rommToggled") || "[]")); } catch (e) {}
+  const keepToggled = () => { try { localStorage.setItem("rommToggled", JSON.stringify([...toggled])); } catch (e) {} };
+  const MAX_ROWS = 600;            // rows drawn at once (search results / a huge open folder)
+  function renderSources() {
+    const box = $("rSources"); box.innerHTML = "";
+    const roots = (R.links && R.links.roots) || [];
+    const files = {}; for (const r of R.rows) if (r.root) files[r.root] = (files[r.root] || 0) + r.files;
+    R.sources.forEach((p, i) => {
+      const div = document.createElement("div"); div.className = "src";
+      div.innerHTML = `<span class="pos"></span><code></code><span class="meta"></span>
+        <select data-depth title="How many folder levels to list"><option value="0">All levels</option><option value="1">1 level</option><option value="2">2 levels</option><option value="3">3 levels</option><option value="4">4 levels</option><option value="5">5 levels</option><option value="6">6 levels</option></select>
+        <button type="button" data-up title="Move up (preferred when two folders give the same platform)">↑</button>
+        <button type="button" data-down title="Move down">↓</button>
+        <button type="button" data-del title="Stop mapping this folder (nothing is deleted)">✕</button>`;
+      q(".pos", div).textContent = i + 1;
+      q("code", div).textContent = p; q("code", div).title = p;
+      const root = roots[i];
+      q(".meta", div).textContent = root !== undefined ? `${num(files[root] || 0)} ${(R.depths || {})[p] ? "items" : "files"}` : "";
+      const lv = q("[data-depth]", div);
+      lv.value = String((R.depths || {})[p] || 0);
+      lv.setAttribute("aria-label", `Folder levels to list for ${p}`);
+      lv.onchange = () => options({ depths: { ...(R.depths || {}), [p]: +lv.value } });
+      q("[data-up]", div).disabled = i === 0;
+      q("[data-down]", div).disabled = i === R.sources.length - 1;
+      if (reading) div.querySelectorAll("button, select").forEach(b => b.disabled = true);
+      const move = (to) => { const s = [...R.sources]; s.splice(i, 1); s.splice(to, 0, p); options({ sources: s }); };
+      q("[data-up]", div).onclick = () => move(i - 1);
+      q("[data-down]", div).onclick = () => move(i + 1);
+      q("[data-del]", div).onclick = () => {
+        if (confirm(`Stop mapping ${p}? Its platform links are removed at the next update; your files and choices stay.`))
+          options({ sources: R.sources.filter((x) => x !== p) });
+      };
+      box.append(div);
+    });
+    if (!R.sources.length) box.innerHTML = `<div class="hint">No download folder yet - add one below.</div>`;
+  }
+  function renderFilter() {
+    const roots = (R.links && R.links.roots) || [];
+    const opts = [["all", "All folders"], ...roots.map((r) => ["root:" + r, `Only ${r}`]), ["overlap", `Overlaps only (${R.conflicts ? R.conflicts.length : 0})`]];
+    if (!opts.some(([v]) => v === show)) show = "all";
+    $("rFilter").innerHTML = opts.map(([v, t]) => `<option value="${esc(v)}">${esc(t)}</option>`).join("");
+    $("rFilter").value = show;
+    $("rFilter").hidden = roots.length < 2 && !(R.conflicts && R.conflicts.length);
+  }
+  function render() {
+    const d = R;
+    pickerClose(false);
+    $("rError").hidden = !d.error; $("rError").textContent = d.error || "";
+    renderSources(); renderFilter();
+    const overlap = new Set();
+    for (const c of d.conflicts || []) [...c.folders, ...c.winner_folders].forEach((p) => overlap.add(p));
+    const body = $("rBody"), wrap = body.closest(".wrap"), scroll = wrap.scrollTop;
+    body.innerHTML = "";
+    const roots = new Set((d.links && d.links.roots) || []);
+    // the tree, from the real folders: the rows plus "groups" (folders without files of their own
+    // but with rows below them, like exodos/eXo/eXoDOS); a chain of single groups is one line
+    const byPath = (a, b) => { const x = a.path.toLowerCase(), y = b.path.toLowerCase(); return x < y ? -1 : x > y ? 1 : 0; };
+    const nodes = [...d.rows, ...(d.groups || [])].sort(byPath);
+    const have = new Set(nodes.map(r => r.path)), up = {}, kids = new Map();
+    for (const r of nodes) {
+      let p = r.path, parent = "";
+      while (p.includes("/")) { p = p.slice(0, p.lastIndexOf("/")); if (have.has(p)) { parent = p; break; } }
+      up[r.path] = parent;
+      if (!kids.has(parent)) kids.set(parent, []);
+      kids.get(parent).push(r);
+    }
+    const below = {};                // number of rows (not groups) somewhere under a folder
+    const count = (path) => (kids.get(path) || []).reduce((n, k) => n + (k.group ? 0 : 1) + (below[k.path] ??= count(k.path)), 0);
+    const isOpen = (path) => roots.has(path) !== toggled.has(path);
+    const find = $("rFind").value.trim().toLowerCase();
+    const flat = !!find || show === "overlap";
+    let list = [];                    // [row, level, label]
+    if (flat) {
+      for (const r of nodes) {
+        if (show === "overlap" && !overlap.has(r.path)) continue;
+        if (show.startsWith("root:") && r.root !== show.slice(5)) continue;
+        if (find && !r.path.toLowerCase().includes(find)) continue;
+        list.push([r, 0, r.path]);
+      }
+    } else {
+      const walk = (parent, level) => {
+        for (let r of kids.get(parent) || []) {
+          if (show.startsWith("root:") && r.root !== show.slice(5) && r.path !== show.slice(5)) continue;
+          let shown = parent ? r.path.slice(parent.length + 1) : r.path;
+          for (let only; r.group && (only = kids.get(r.path) || []).length === 1 && only[0].group; ) {
+            shown += only[0].path.slice(r.path.length); r = only[0];
+          }
+          list.push([r, level, shown]);
+          if (isOpen(r.path)) walk(r.path, level + 1);
+        }
+      };
+      walk("", 0);
+    }
+    const total = list.length;
+    list = list.slice(0, MAX_ROWS);
+    for (const [r, level, shown] of list) {
+      const tr = document.createElement("tr");
+      if (r.group) tr.className = "group";
+      if (roots.has(r.path)) tr.className = "root";
+      if (r.conflict) tr.className = "conflict";
+      tr.innerHTML = `<td class="p"></td><td class="n"></td><td><button type="button" class="act"></button></td><td class="res"></td>`;
+      const cell = tr.children[0], n = below[r.path] ?? (below[r.path] = count(r.path));
+      cell.title = r.path;
+      cell.style.paddingLeft = `${6 + level * 16}px`;
+      if (!flat) {
+        const tw = document.createElement("button");
+        tw.type = "button"; tw.className = "tw" + (n ? "" : " none");
+        tw.textContent = isOpen(r.path) ? "▾" : "▸";
+        if (n) {
+          tw.setAttribute("aria-expanded", String(isOpen(r.path)));
+          tw.setAttribute("aria-label", `${isOpen(r.path) ? "Close" : "Open"} ${r.path}`);
+          tw.onclick = () => { toggled.has(r.path) ? toggled.delete(r.path) : toggled.add(r.path); keepToggled(); render(); };
+        } else tw.tabIndex = -1;
+        cell.append(tw);
+      }
+      cell.append(document.createTextNode(shown));
+      if (!flat && n && !isOpen(r.path)) {
+        const k = document.createElement("span"); k.className = "kids"; k.textContent = `${num(n)} inside`; cell.append(k);
+      }
+      tr.children[1].textContent = r.group ? "" : num(r.files);
+      const pick = q(".act", tr), cur = r.path in pending ? pending[r.path] : r.value;
+      pick.textContent = label(cur); pick.title = label(cur);
+      pick.setAttribute("aria-label", `RomM platform for ${r.path}: ${label(cur)}`);
+      pick.setAttribute("aria-haspopup", "listbox");
+      pick.onclick = () => openPicker(pick, r, cur);
+      if (focusPath === r.path) { focusPath = null; setTimeout(() => pick.focus(), 0); }
+      let [text, cls] = result(r);
+      if (r.group) {                  // a folder that only holds other folders
+        [text, cls] = r.value === "exclude" ? ["left out of RomM, with everything inside", "none"]
+          : r.value ? [`${r.value} for the folders inside`, "ok"]
+          : ["folder", "none"];
+      }
+      if (r.note) { text = r.note; cls = "warn"; }
+      else if (r.conflict) { text = `left out (${r.conflict.split("/").pop()} is ${r.slug})`; cls = "warn"; }
+      else if (r.excluded_by) { text = `left out (in ${r.excluded_by})`; cls = "none"; }
+      else if (roots.has(r.path) && r.kind === "unmapped") { text = "download folder"; cls = "none"; }
+      else if (overlap.has(r.path)) text += " (used)";
+      tr.children[3].textContent = text; tr.children[3].className = "res st-" + cls;
+      body.append(tr);
+    }
+    if (total > list.length) {
+      const tr = document.createElement("tr"); tr.className = "more";
+      tr.innerHTML = `<td colspan="4"></td>`;
+      tr.children[0].textContent = flat ? `Showing ${num(list.length)} of ${num(total)} folders - type more to narrow the search.`
+        : `Showing the first ${num(list.length)} of ${num(total)} open rows - close a folder or search to see the rest.`;
+      body.append(tr);
+    }
+    if (!d.rows.length) body.innerHTML = `<tr><td colspan="4" class="hint">${d.error ? "" : "No folders with files yet."}</td></tr>`;
+    wrap.scrollTop = scroll;
+    const s = d.summary;
+    $("rCount").textContent = `${num(d.rows.length)} folders: ${num(s.platforms)} platforms, ${num(s.firmware)} firmware, ${num(s.files)} files`;
+    $("rWarn").innerHTML = "";
+    for (const t of d.warnings) { const li = document.createElement("li"); li.textContent = t; $("rWarn").append(li); }
+    const isList = tab === "list";
+    $("rOut").hidden = isList; $("rList").hidden = !isList; $("rCopy").hidden = isList;
+    if (isList) renderList(); else $("rOut").textContent = d.outputs[tab] || "";
+    $("rHelp").textContent = isList ? "" : HELP[tab];
+    $("rApply").hidden = !d.old_links;
+    if (d.old_links) $("rApply").textContent = `Remove ${num(d.old_links)} old platform link${d.old_links === 1 ? "" : "s"}`;
+    document.querySelectorAll("#paneRomm .tab").forEach(t => t.classList.toggle("on", t.dataset.out === tab));
+    q("#paneRomm .ref-btn").classList.toggle("on", isList);
+    $("rApply").disabled = !!d.error || reading;
+  }
+  function renderList() {
+    const f = $("rListFind").value.trim().toLowerCase();
+    const used = {}; for (const p of R.platforms) used[p.slug] = p.folders;
+    const body = $("rListBody"); body.innerHTML = "";
+    for (const p of R.slugs) {
+      if (f && !`${p.slug} ${p.name} ${p.family}`.toLowerCase().includes(f)) continue;
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td><button class="slug" title="Copy"></button></td><td></td><td></td><td class="p"></td>`;
+      const b = q(".slug", tr); b.textContent = p.slug;
+      b.onclick = async () => { try { await navigator.clipboard.writeText(p.slug); b.classList.add("copied"); setTimeout(() => b.classList.remove("copied"), 1000); } catch (e) {} };
+      tr.children[1].textContent = p.name; tr.children[2].textContent = p.family;
+      const fs = used[p.slug] || []; tr.children[3].textContent = fs.join(", "); tr.children[3].title = fs.join("\n");
+      if (fs.length) tr.classList.add("in-use");
+      body.append(tr);
+    }
+  }
+  let SLUGS = [];                      // RomM's platform list, loaded once (/api/romm/platforms)
+  // ---- reading the download folders in the background (adding/removing one, Refresh, first open)
+  let reading = false;
+  const EMPTY = { rows: [], platforms: [], firmware: [], warnings: [], conflicts: [], links: {},
+                  summary: { platforms: 0, firmware: 0, files: 0 }, outputs: { config: "" } };
+  function showProgress(p) {
+    const box = $("rProgress"), bar = q(".pbar", box);
+    box.hidden = !p;
+    if (!p) return;
+    const n = Math.max(1, p.sources || 1);
+    const pct = Math.round(100 * Math.min(1, (p.source + (p.total ? p.done / p.total : 0)) / n));
+    const where = p.path ? p.path : "the download folders";
+    const which = n > 1 ? ` (folder ${p.source + 1} of ${n})` : "";
+    const count = p.total ? `${num(p.done)} of ${num(p.total)} folders` : "starting…";
+    q(".ptext", box).textContent = `Reading ${where}${which}: ${count}${p.current ? ` · ${p.current}` : ""}`;
+    bar.classList.toggle("wait", !p.total);
+    bar.setAttribute("aria-valuenow", String(pct));
+    q(".pfill", bar).style.width = pct + "%";
+  }
+  function setReading(on) {
+    reading = on;
+    ["rSourceAdd", "rSourceNew", "rSourceDepth", "rRefresh", "rApply", "rSkip"].forEach(id => $(id).disabled = on || (id === "rApply" && !!(R && R.error)));
+    document.querySelectorAll("#rSources button, #rSources select").forEach(b => b.disabled = on);
+    if (!on) showProgress(null);
+  }
+  async function follow(d) {
+    // keep the table that's there (or an empty one) while the folders are read
+    R = R ? { ...R, sources: d.sources, depths: d.depths, options: d.options, links_dir: d.links_dir }
+          : { ...EMPTY, ...d };
+    R.slugs = SLUGS;
+    if (reading) return;
+    setReading(true); render(); showProgress(d.reading);
+    try {
+      for (;;) {
+        await new Promise(r => setTimeout(r, 400));
+        const p = await api("GET", "/api/romm/progress");
+        showProgress(p);
+        if (p.running) continue;
+        if (p.error) throw new Error(p.error);
+        q(".ptext", $("rProgress")).textContent = "Read finished - preparing the list…";
+        const next = await api("GET", "/api/romm");
+        if (next.reading) {          // the list changed meanwhile: read it again
+          R = { ...R, sources: next.sources, depths: next.depths }; renderSources(); showProgress(next.reading); continue;
+        }
+        for (const k in pending) delete pending[k];      // the new rows include every saved choice
+        setReading(false); loadR(next); toast("Download folders read.");
+        return;
+      }
+    } catch (e) {
+      setReading(false); render(); alert("Could not read the download folders: " + e.message);
+    }
+  }
+  function loadR(d) {
+    if (d.reading) { follow(d); return; }
+    R = d;
+    R.slugs = SLUGS;
+    if (document.activeElement !== $("rSkip")) $("rSkip").value = (d.options.skip_names || []).join(", ");
+    render();
+  }
+  async function save(path, action, shown) {
+    pending[path] = shown;
+    // keep showing the choice until rows that include it arrive (not while the folders are re-read)
+    try { const d = await api("PUT", "/api/romm/map", { path, action }); if (!d.reading) delete pending[path]; loadR(d); }
+    catch (e) { delete pending[path]; alert(`Not saved for ${path}: ${e.message}`); render(); }
+  }
+  async function options(extra = {}) {
+    try {
+      loadR(await api("PUT", "/api/romm/options", extra));
+    } catch (e) { alert(e.message); }
+  }
+  const addSource = () => {
+    const v = $("rSourceNew").value.trim();
+    if (!v) return;
+    $("rSourceNew").value = "";
+    const n = +$("rSourceDepth").value;
+    options({ sources: [...R.sources, v], depths: { ...(R.depths || {}), ...(n ? { [v]: n } : {}) } });
+  };
+  $("rSourceAdd").onclick = addSource;
+  $("rSourceNew").addEventListener("keydown", (e) => { if (e.key === "Enter") addSource(); });
+  $("rFilter").addEventListener("change", () => { show = $("rFilter").value; render(); });
+  let findTimer = null;
+  $("rFind").addEventListener("input", () => { clearTimeout(findTimer); findTimer = setTimeout(render, 150); });
+  $("rSkip").addEventListener("change", () => options({ skip_names: $("rSkip").value }));
+  // ---- one-time import of the old Rom_Mapping_RomM.csv
+  async function importCsv(file) {
+    if (!file) return;
+    try {
+      const res = await fetch("/api/romm/import", { method: "POST", headers: { "Content-Type": "text/csv" }, body: await file.text() });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || res.statusText);
+      const r = d.imported, lines = [`${file.name}: ${r.imported} folders mapped, ${r.already} already right, ${r.empty} without a platform (left out of RomM${r.excluded ? `; ${r.excluded} named like a platform were excluded` : ""}).`];
+      if (r.missing.length) lines.push(`Not found in your download folders (mapped anyway): ${r.missing.join(", ")}`);
+      if (r.custom.length) lines.push(`Not RomM platforms - RomM adds them as custom platforms: ${[...new Set(r.custom)].join(", ")}`);
+      if (r.invalid.length) lines.push(`Skipped (not a platform name): ${r.invalid.join(", ")}`);
+      loadR(d);
+      alert(lines.join("\n\n"));
+      loadActivity();
+    } catch (e) { alert("Could not import: " + e.message); }
+  }
+  const drop = $("rDrop");
+  drop.onclick = () => { $("rDropFile").value = ""; $("rDropFile").click(); };
+  drop.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); drop.onclick(); } };
+  $("rDropFile").onchange = () => importCsv($("rDropFile").files[0]);
+  drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("over"); });
+  drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+  drop.addEventListener("drop", (e) => { e.preventDefault(); drop.classList.remove("over"); importCsv(e.dataTransfer.files[0]); });
+  window.loadRomm = async () => {
+    if (!R) $("rOut").textContent = "Loading…";
+    try {
+      if (!SLUGS.length) SLUGS = (await api("GET", "/api/romm/platforms")).slugs;
+      loadR(await api("GET", "/api/romm"));
+    } catch (e) { $("rOut").textContent = e.message; }
+  };
+  $("rRefresh").onclick = async () => {
+    try { loadR(await api("GET", "/api/romm?fresh=1")); } catch (e) { alert(e.message); }
+  };
+  $("rApply").onclick = async () => {
+    if (!confirm("Remove the platform links an older version made? Only those links are removed - your folders stay.")) return;
+    const out = $("rApplied"); $("rApply").disabled = true;
+    try {
+      const d = await api("POST", "/api/romm/links"); loadR(d);
+      out.textContent = d.applied.text; out.className = d.applied.errors.length ? "bad" : "hint";
+    } catch (e) { out.textContent = "Could not update the links: " + e.message; out.className = "bad"; }
+    out.hidden = false; $("rApply").disabled = false; loadActivity();
+  };
+  document.querySelectorAll("#paneRomm .tab").forEach(t => t.onclick = () => { tab = outTab = t.dataset.out; render(); });
+  q("#paneRomm .ref-btn").onclick = () => { tab = tab === "list" ? outTab : "list"; render(); };
+  $("rListFind").addEventListener("input", renderList);
+  $("rCopy").onclick = async () => {
+    try { await navigator.clipboard.writeText($("rOut").textContent); }
+    catch (e) { const r = document.createRange(); r.selectNodeContents($("rOut")); const s = getSelection(); s.removeAllRanges(); s.addRange(r); document.execCommand("copy"); s.removeAllRanges(); }
+    $("rCopy").textContent = "Copied"; setTimeout(() => ($("rCopy").textContent = "Copy"), 1500);
+  };
+})();
+
+// ------------------------------------------------------------- main tabs
+function showPane(pane) {
+  pane = pane === "romm" ? "romm" : "links";
+  document.querySelectorAll(".maintabs [data-pane]").forEach(b => {
+    b.classList.toggle("on", b.dataset.pane === pane); b.setAttribute("aria-selected", String(b.dataset.pane === pane));
+  });
+  $("paneLinks").hidden = pane !== "links"; $("linksActions").hidden = pane !== "links";
+  $("paneRomm").hidden = pane !== "romm"; $("rommActions").hidden = pane !== "romm";
+  if (pane === "romm") loadRomm();
+  if (location.hash !== "#" + pane) history.replaceState(null, "", "#" + pane);
+  try { localStorage.setItem("pane", pane); } catch (e) {}
+}
+document.querySelectorAll(".maintabs [data-pane]").forEach(b => b.onclick = () => showPane(b.dataset.pane));
+window.addEventListener("hashchange", () => showPane(location.hash.slice(1)));
+let startPane = location.hash.slice(1);
+if (!startPane) { try { startPane = localStorage.getItem("pane") || "links"; } catch (e) { startPane = "links"; } }
+showPane(startPane);
+
+load().catch(e => { $("banner").innerHTML = `<div class="banner">Failed to load: ${esc(e.message)}</div>`; });
+loadActivity();
+</script>
+</body>
+</html>

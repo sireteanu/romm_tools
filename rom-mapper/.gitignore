@@ -1,0 +1,11 @@
+# Local config - never commit
+.env
+config/*
+Rom_Mapping*.csv
+rom-mapper-state.json
+*.bak
+__pycache__/
+.venv/
+rom-mapper-mapping.json*
+romm-mapper.json
+.pytest_cache/
