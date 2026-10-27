@@ -9,6 +9,12 @@ romm_tools continues two projects; their own changelogs are kept as they were:
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-10-27
+
+### Fixed
+- Runs on Python 3.10 and 3.11 outside Docker, as the README says: a log line in save sync needed
+  Python 3.12. The Docker image (Python 3.13) wasn't affected.
+
 ## [1.0.0] - 2026-10-27
 
 The first romm_tools release: **romm_sync** (save sync, sireteanu/romm_syncthing_sync 2.11.0, based

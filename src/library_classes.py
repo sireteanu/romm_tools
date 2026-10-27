@@ -345,7 +345,7 @@ class LocalLibrary:
             logger.debug(f"With local saves: {with_saves}")
             logger.debug(f"Unmatched: {total - matched}.")
         else:
-            logger.warning(f"No saves or states were found in {", ".join([str(sf) for sf in self.sync_folders])}.")
+            logger.warning(f"No saves or states were found in {', '.join([str(sf) for sf in self.sync_folders])}.")
     # endregion
 
     # region File Watcher / Sync Functions
