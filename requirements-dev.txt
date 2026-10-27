@@ -1,0 +1,6 @@
+# tests and linting (CI: .github/workflows/tests.yml)
+pytest>=8
+httpx            # FastAPI TestClient
+pyflakes>=3
+flake8
+pillow           # tests/mock_romm.py artwork for the demo

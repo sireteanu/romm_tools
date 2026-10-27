@@ -18,7 +18,43 @@ from __future__ import annotations
 import os
 
 MEDIA_DEFAULT = "MEDIA_FULL"
-FORBIDDEN_DEST = {"", "/", "/mnt", "/mnt/user", "/mnt/disks", "/mnt/cache", "/config"}
+FORBIDDEN_DEST = {"", "/", "/mnt", "/mnt/user", "/mnt/disks", "/mnt/cache", "/config", "/data", "/syncdata",
+                  "/syncdata/saves", "/syncdata/states"}
+
+
+def _owner():
+    """(uid, gid) to give new links and folders when the container runs as root with PUID/PGID set
+    (romm_tools' save sync runs that way), so they belong to the share's user like the rest of the
+    files. None when running as that user already (rom-mapper's own setup) or nothing is set."""
+    uid, gid = os.environ.get("PUID", "").strip(), os.environ.get("PGID", "").strip()
+    if not (uid.isdigit() and gid.isdigit()) or not hasattr(os, "geteuid") or os.geteuid() != 0:
+        return None
+    return int(uid), int(gid)
+
+
+def _makedirs(path: str, owner) -> None:
+    """os.makedirs, handing every folder it creates to `owner`."""
+    missing = []
+    p = path
+    while p and not os.path.lexists(p):
+        missing.append(p)
+        p = os.path.dirname(p)
+    os.makedirs(path, exist_ok=True)
+    if owner:
+        for d in reversed(missing):
+            try:
+                os.lchown(d, *owner)
+            except OSError:
+                pass
+
+
+def _symlink(target: str, link: str, owner) -> None:
+    os.symlink(target, link)
+    if owner:
+        try:
+            os.lchown(link, *owner)
+        except OSError:
+            pass
 
 
 def check_dest(dest: str, source_paths) -> str | None:
@@ -67,7 +103,8 @@ def apply(want: dict, dest: str) -> dict:
     """Make the mapping folder match `want`. -> {created, updated, removed, kept, problems}"""
     res = {"created": 0, "updated": 0, "removed": 0, "kept": 0, "problems": []}
     dest = os.path.abspath(dest)
-    os.makedirs(dest, exist_ok=True)
+    owner = _owner()
+    _makedirs(dest, owner)
     real_dest = os.path.realpath(dest)
 
     for link, target in sorted(want.items()):
@@ -80,18 +117,18 @@ def apply(want: dict, dest: str) -> dict:
             res["problems"].append(f"{os.path.relpath(link, dest)}: its folder is a link to another place - skipped")
             continue
         try:
-            os.makedirs(parent, exist_ok=True)
+            _makedirs(parent, owner)
             if os.path.islink(link):
                 if os.readlink(link) == target:
                     res["kept"] += 1
                     continue
                 os.remove(link)
-                os.symlink(target, link)
+                _symlink(target, link, owner)
                 res["updated"] += 1
             elif os.path.lexists(link):
                 res["problems"].append(f"{os.path.relpath(link, dest)}: a real file or folder is in the way - left alone")
             else:
-                os.symlink(target, link)
+                _symlink(target, link, owner)
                 res["created"] += 1
         except OSError as e:
             res["problems"].append(f"{os.path.relpath(link, dest)}: {e.strerror or e}")

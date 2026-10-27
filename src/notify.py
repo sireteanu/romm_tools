@@ -37,7 +37,7 @@ def _send_one(ch: dict, title: str, body: str, priority: str, url: Optional[str]
         embed = {"title": title, "description": body[:4000], "color": color}
         if url:
             embed["url"] = url
-        r = requests.post(ch["webhook_url"], json={"username": "romm_sync", "embeds": [embed]}, timeout=15)
+        r = requests.post(ch["webhook_url"], json={"username": "romm_tools", "embeds": [embed]}, timeout=15)
     elif t == "ntfy":
         headers = {"Title": title.encode("utf-8"), "Priority": {"high": "4", "normal": "3", "low": "2"}[priority],
                    "Tags": {"high": "warning", "normal": "video_game", "low": "floppy_disk"}[priority]}
@@ -61,7 +61,7 @@ def _send_one(ch: dict, title: str, body: str, priority: str, url: Optional[str]
                           headers={"Access-Token": ch["access_token"]}, timeout=15)
     elif t == "webhook":
         r = requests.post(ch["url"], json={"title": title, "message": body, "priority": priority,
-                                           "url": url, "source": "romm_sync"}, timeout=15)
+                                           "url": url, "source": "romm_tools"}, timeout=15)
     else:
         raise ValueError(f"Unknown channel {t}")
     if r.status_code >= 400:
@@ -103,11 +103,11 @@ def after_sync(summary: Optional[dict], error: Optional[str] = None) -> None:
 
         if error:
             if ev.get("problems") and error != _last_problem:
-                messages.append(("romm_sync: sync problem", error, "high"))
+                messages.append(("romm_tools: sync problem", error, "high"))
             _last_problem = error
         else:
             if _last_problem and ev.get("problems"):
-                messages.append(("romm_sync: back to normal", "The last sync completed without problems.", "low"))
+                messages.append(("romm_tools: back to normal", "The last sync completed without problems.", "low"))
             _last_problem = None
 
         with STATE.lock:
@@ -120,7 +120,7 @@ def after_sync(summary: Optional[dict], error: Optional[str] = None) -> None:
         if new_q and ev.get("questions"):
             conflicts = [a for a in new_q if a.kind == "conflict"]
             n = len(new_q)
-            title = f"romm_sync: {n} file{'s' if n != 1 else ''} need{'s' if n == 1 else ''} your decision"
+            title = f"romm_tools: {n} file{'s' if n != 1 else ''} need{'s' if n == 1 else ''} your decision"
             if conflicts:
                 title += f" ({len(conflicts)} conflict{'s' if len(conflicts) != 1 else ''})"
             body = _bullets([f"{a.game} ({a.platform}) — {a.file_name}: {a.reason}" for a in new_q])
@@ -134,7 +134,7 @@ def after_sync(summary: Optional[dict], error: Optional[str] = None) -> None:
             _notified_errors[e["key"]] = e["message"]
         if new_e and ev.get("errors"):
             body = _bullets([f"{e['game']} ({e['platform']}) — {e['file_name']}: {e['message']}" for e in new_e])
-            messages.append((f"romm_sync: {len(new_e)} file{'s' if len(new_e) != 1 else ''} failed to sync", body, "high"))
+            messages.append((f"romm_tools: {len(new_e)} file{'s' if len(new_e) != 1 else ''} failed to sync", body, "high"))
 
         if summary and ev.get("activity") and (summary.get("pushed") or summary.get("pulled")):
             parts = []
@@ -142,7 +142,7 @@ def after_sync(summary: Optional[dict], error: Optional[str] = None) -> None:
                 parts.append(f"⬆ {summary['pushed']} uploaded to RomM")
             if summary.get("pulled"):
                 parts.append(f"⬇ {summary['pulled']} downloaded from RomM")
-            messages.append(("romm_sync: synced", "\n".join(parts), "low"))
+            messages.append(("romm_tools: synced", "\n".join(parts), "low"))
 
     for title, body, prio in messages:
         threading.Thread(target=send, args=(title, body, prio), daemon=True, name="notify").start()

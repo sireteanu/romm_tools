@@ -1,6 +1,6 @@
 # Two-way sync: how decisions are made
 
-*Added in the GUI fork. The original one-way design by amn-96 is described in [IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md).*
+*Part of save sync in romm_tools; added in the GUI fork (sireteanu/romm_syncthing_sync). The original one-way design by amn-96 is described in [IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md).*
 
 ## The baseline
 

@@ -254,7 +254,7 @@ def load_mapping(path: Optional[Path]) -> Dict[str, List[str]]:
     return out
 
 
-HEADER = """# romm_sync platform mapping — edit this on the dashboard's Platforms page, not by hand.
+HEADER = """# romm_tools platform mapping (save sync) — edit this on the dashboard's Platforms page, not by hand.
 # <romm platform slug>: [<local folder name>, ...]   (folder names are case-insensitive)
 """
 

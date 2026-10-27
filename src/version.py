@@ -11,7 +11,7 @@ from typing import Optional
 import requests
 from loguru import logger
 
-REPO = "sireteanu/romm_syncthing_sync"
+REPO = "sireteanu/romm_tools"
 _ROOT = Path(__file__).resolve().parent.parent
 
 

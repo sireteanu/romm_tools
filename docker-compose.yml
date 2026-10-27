@@ -1,18 +1,28 @@
 ---
+# romm_tools: copy .env.example to .env, set the paths, then `docker compose up -d`.
+# Web page: http://<server>:8080
 services:
-  romm-sync:
-    image: ghcr.io/sireteanu/romm_syncthing_sync:latest
-    container_name: romm-sync
+  romm-tools:
+    image: ghcr.io/sireteanu/romm_tools:latest
+    container_name: romm-tools
     restart: unless-stopped
-    env_file: .env.example
+    env_file: .env
+    environment:
+      # ROM folders: first source folder(s) and the frontend links folder (paths as on the host)
+      SRC_BASE: ${ROMS_PATH:-}
+      DEST_PATH: ${MAPPING_PATH:-}
     ports:
-      - "${WEB_HOST_PORT:-8080}:8080"   # web dashboard -> http://<server>:8080
+      - "${WEB_HOST_PORT:-8080}:8080"
     volumes:
-    # do NOT change the container side of these. Update the variables in .env.
-    # The /syncdata/... bind mounts are hardcoded in the container.
-    # Sync folders are mounted read-write so RomM -> folder sync can work.
-    # Add ":ro" to the end of them if you only ever want folder -> RomM (and set PULL_MODE=off).
-      # - ${ALL_SYNC_FOLDER}:/syncdata  # Uncomment if saves and states are in the same folder.
+      # App data: save sync history, approvals, backups, recycle bin, logs, ROM folders mapping/settings
+      - ${DATA_FOLDER:-./data}:/data
+      # --- Save sync (remove these lines and set SAVE_SYNC=false if you only use ROM folders) ---
+      # Do NOT change the container side; the /syncdata/... paths are fixed in the container.
+      # Mounted read-write so RomM -> folder sync can work (add ":ro" and set PULL_MODE=off for one way only).
+      # - ${ALL_SYNC_FOLDER}:/syncdata   # instead of the two below, if saves and states share one folder
       - ${SAVE_SYNC_FOLDER}:/syncdata/saves
       - ${STATE_SYNC_FOLDER}:/syncdata/states
-      - ${DATA_FOLDER:-./data}:/data   # sync history, pending approvals and backups
+      # --- ROM folders (remove this line and set ROM_FOLDERS=false if you only use save sync) ---
+      # ONE folder containing your ROM folders, the frontend links folder and RomM's download folders,
+      # at the SAME path inside the container as on the host - the links must resolve outside it too.
+      - ${EMULATION_ROOT}:${EMULATION_ROOT}

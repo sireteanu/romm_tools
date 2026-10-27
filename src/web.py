@@ -1,6 +1,12 @@
-"""Web GUI for romm_sync (added in the GUI fork; original project by amn-96, MIT License).
+"""Web GUI for romm_tools (save sync part from the romm_syncthing_sync GUI fork; original project by
+amn-96, MIT License).
 
-Serves a single-page dashboard plus a small JSON API:
+One server on one port for both parts of the app:
+    /            the save sync dashboard (single page, src/web_static/index.html)
+    /roms/       ROM folders: Frontend links + RomM library (src/mapper, a Flask app mounted here)
+    GET  /api/features               which parts are on, and why save sync isn't running if it's off
+
+Save sync's JSON API:
     GET  /api/status                 everything the dashboard shows
     POST /api/sync                   run a sync now
     POST /api/actions/{id}           approve / reject / resolve one pending action
@@ -22,7 +28,8 @@ from typing import Any, Dict, List, Optional
 
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response, StreamingResponse
+from fastapi.responses import (FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response,
+                               StreamingResponse)
 from loguru import logger
 from pydantic import BaseModel
 
@@ -92,7 +99,7 @@ class _ImageCache:
 
 
 def create_app(cfg) -> FastAPI:
-    app = FastAPI(title="romm_sync", docs_url=None, redoc_url=None)
+    app = FastAPI(title="romm_tools", docs_url=None, redoc_url=None)
     romm = cfg.ROMM_CREDENTIALS
     cache = _ImageCache()
 
@@ -113,12 +120,21 @@ def create_app(cfg) -> FastAPI:
             except Exception:
                 ok = False
         if not ok:
-            return Response(status_code=401, headers={"WWW-Authenticate": 'Basic realm="romm_sync"'})
+            return Response(status_code=401, headers={"WWW-Authenticate": 'Basic realm="romm_tools"'})
         return await call_next(request)
     # endregion
 
+    features = features_of(cfg)
+
+    @app.get("/api/features")
+    def api_features():
+        """Which parts of the app are on - both pages hide the menu items of a part that is off."""
+        return features
+
     @app.get("/", response_class=HTMLResponse)
     def index():
+        if not features["save_sync"] and features["rom_folders"]:
+            return RedirectResponse("roms/")   # only the ROM folders part is set up
         return FileResponse(STATIC_DIR / "index.html", headers={"Cache-Control": "no-cache"})
 
     @app.get("/static/{name}")
@@ -376,7 +392,7 @@ def create_app(cfg) -> FastAPI:
         f = log_file()
         if not f.exists():
             raise HTTPException(404, "No log file yet")
-        return FileResponse(f, filename="romm_sync.log", media_type="text/plain")
+        return FileResponse(f, filename="romm_tools.log", media_type="text/plain")
     # endregion
 
     # region saves page
@@ -457,7 +473,7 @@ def create_app(cfg) -> FastAPI:
         except ValueError as e:
             raise HTTPException(400, str(e))
         from datetime import datetime as _dt
-        name = f"romm-sync-saves-{_dt.now().strftime('%Y-%m-%d')}.zip"
+        name = f"romm-tools-saves-{_dt.now().strftime('%Y-%m-%d')}.zip"
         return StreamingResponse(iter(lambda: f.read(1 << 20), b""), media_type="application/zip",
                                  headers={"Content-Disposition": f'attachment; filename="{name}"',
                                           "X-Files": str(n), "X-Problems": str(len(problems))})
@@ -559,8 +575,8 @@ def create_app(cfg) -> FastAPI:
         chans = st.notify_config()["channels"]
         if not chans:
             raise HTTPException(400, "Add and save a notification service first.")
-        failures = notify.send("romm_sync test notification",
-                               "If you can read this, notifications from romm_sync are working.", "normal", chans)
+        failures = notify.send("romm_tools test notification",
+                               "If you can read this, notifications from romm_tools are working.", "normal", chans)
         if failures:
             raise HTTPException(502, "; ".join(f"{label}: {err}" for label, err in failures))
         return {"ok": True, "sent": len(chans)}
@@ -621,7 +637,26 @@ def create_app(cfg) -> FastAPI:
         raise HTTPException(404)
     # endregion
 
+    # region ROM folders (rom-mapper): its Flask app, mounted under /roms/
+    if features["rom_folders"]:
+        from a2wsgi import WSGIMiddleware
+        from .mapper.server import app as rom_folders_app
+
+        @app.get("/roms", include_in_schema=False)
+        def rom_folders_slash():
+            return RedirectResponse("roms/")   # its page uses relative api/... addresses
+
+        app.mount("/roms", WSGIMiddleware(rom_folders_app))
+    # endregion
+
     return app
+
+
+def features_of(cfg) -> Dict[str, Any]:
+    """{save_sync, rom_folders, save_sync_problem} - set by romm_tools.py on the config (FEATURES)."""
+    f = getattr(cfg, "FEATURES", None) or {}
+    return {"save_sync": bool(f.get("save_sync", True)), "rom_folders": bool(f.get("rom_folders", False)),
+            "save_sync_problem": f.get("save_sync_problem")}
 
 
 def start_web_server(cfg) -> Optional[threading.Thread]:

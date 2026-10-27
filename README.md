@@ -1,377 +1,374 @@
-# romm_sync — with web dashboard & two-way sync
+# romm_tools
 
-A utility for syncing emulator save files and save states across your gaming devices and [RomM](https://romm.app/), now with a web dashboard and sync in both directions.
+Companion tools for [RomM](https://romm.app/) in one Docker container with one web page:
 
-> **This is a fork.** The original **[romm_syncthing_sync](https://github.com/amn-96/romm_syncthing_sync)** was created by **[amn-96](https://github.com/amn-96)** and is MIT licensed. All the core sync logic, RomM matching and platform mapping are their work. This fork adds a web GUI, RomM → folder sync, approvals and conflict handling. See [NOTICE.md](NOTICE.md) for exactly what changed.
+- **Save sync** - keeps emulator saves and save states in your Syncthing folder in sync with RomM,
+  **both ways**, with a dashboard, approvals when it's unclear, side-by-side conflict resolution, a
+  recycle bin and notifications.
+- **ROM folders** - builds a folder of **links** per emulation frontend (Batocera/RGS, RetroBat,
+  Knulli, ...) into your ROM folders, and decides which of your folders is which **RomM platform**
+  (volume lines for RomM's compose file and a `config.yml`). Nothing is copied or moved.
+
+Use both, or either one on its own. Made for Unraid; runs on any Linux Docker host.
+
+> **Credits.** Save sync is based on **[romm_syncthing_sync](https://github.com/amn-96/romm_syncthing_sync)**
+> by **[amn-96](https://github.com/amn-96)** (MIT) - the library scanner, RomM matching, platform
+> mapping and sync modes are their work; the web GUI and two-way sync were added in the fork
+> [sireteanu/romm_syncthing_sync](https://github.com/sireteanu/romm_syncthing_sync). ROM folders is
+> [sireteanu/rom-mapper](https://github.com/sireteanu/rom-mapper). Both histories are in this
+> repository. See [NOTICE.md](NOTICE.md) for exactly who wrote what.
 
 <picture>
   <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/dashboard-light.png">
-  <img alt="romm_sync dashboard: sync progress, items waiting for approval, systems and games with RomM covers and save-state screenshots" src="docs/screenshots/dashboard-dark.png">
+  <img alt="romm_tools dashboard: sync progress, items waiting for approval, systems and games with RomM covers and save-state screenshots; the menu has Dashboard, Saves, Platforms, Recycle bin, Frontend links, RomM library, Logs and Settings" src="docs/screenshots/dashboard-dark.png">
 </picture>
 
-## What's new in this fork
-
-- **Web dashboard** on port `8080`:
-  - live sync progress
-  - every system with a status bar
-  - every game with its RomM cover art and the latest save-state screenshot (from RomM, or RetroArch's local `.png`)
-  - an activity log
-- **RomM → folder sync.** Saves and states that are new or newer on RomM (from another device, the web player, Grout…) can be written back into your Syncthing folder. Syncthing then delivers them to your handhelds.
-- **Asks only when it's unclear.** Everything syncs automatically in both directions. You're only asked when a file changed on both sides, was deleted on one side but changed on the other, or two different copies exist with no history. Each question explains why, and failures are listed with a plain-language reason.
-- **Conflict handling.** If a file changed on *both* sides since the last sync, nothing is overwritten. The dashboard shows the two versions side by side (time, size, hash, screenshot) and you choose:
-  - **keep the folder version**
-  - **keep the RomM version**
-  - **keep both** (your local copy is stored on RomM as a separate `(conflict …)` entry)
-- **Backups.** Before any file is overwritten (on either side), the version being replaced is copied to `/data/backups/<date>/<system>/`.
-- **Saves page.** Every save and state in your sync folders and on RomM in one list, with filters (system, type, folder only / RomM only / different / old versions). Tick files or whole games and delete them everywhere, download or upload them, or clear out the old copies RomM keeps of every upload.
-- **Deletions sync, with a recycle bin.** Delete a save on either side and it's removed from the other too. The removed copy goes to a recycle bin you can restore from; it's cleared after a number of days you choose.
-- **Platforms page** to map your system folders to RomM platforms. It uses RomM's official platform list and folder aliases, fetched from RomM's GitHub.
-- **Logs page.** The full app log, filterable by level and searchable, with live updates and download, plus a list of recent uploads, downloads and decisions. The log is also kept in `/data/logs` (rotated).
-- **Settings page.** Change sync behaviour, intervals, backup retention and the dashboard password from the browser. Changes apply immediately, no restart.
-- **Notifications** via Discord, ntfy, Gotify, Pushbullet or any webhook. You choose what to hear about: decisions needed, failed files, sync problems, sync activity. You get one message per sync and never the same item twice.
-- **Looks like RomM.** The dashboard uses RomM 5.x's own colours, type and shapes, so it feels at home next to it. It isn't affiliated with the RomM project.
-- **Unraid template** with the web UI link, icon and all settings.
-- **Automatic releases.** Every change pushed to the default branch is tested, tagged, released and published as a Docker image.
-
-| Conflict resolution | Settings & notifications | Logs |
+| Frontend links | RomM library | Conflict resolution |
 |---|---|---|
-| ![Resolve conflict dialog showing local and RomM versions side by side](docs/screenshots/conflict.png) | ![Settings page with sync behaviour, timing and notification services](docs/screenshots/settings.png) | ![Logs page with recent actions and a filterable log](docs/screenshots/logs.png) |
+| ![Frontend links grid: one row per ROM folder, one column per frontend](docs/screenshots/frontend-links.png) | ![RomM library: platforms per download folder and the volume lines for RomM's compose file](docs/screenshots/romm-library.png) | ![Resolve conflict dialog showing local and RomM versions side by side](docs/screenshots/conflict.png) |
 
-<details><summary>Phone layout</summary>
+- **New here?** Follow the [user guide](docs/user-guide.md).
+- **Full reference:** [save sync](docs/save-sync.md) and [ROM folders](docs/rom-folders.md).
+- **What changed?** See the [changelog](CHANGELOG.md) and the [releases](../../releases). The running
+  version is shown next to the name at the top of the page.
+- **Working on the code (people or AI assistants)?** This README is the overview; coding rules are in
+  [CLAUDE.md](CLAUDE.md).
 
-<img src="docs/screenshots/mobile.png" width="320" alt="Dashboard on a phone">
-</details>
+---
 
-*(Screenshots use invented demo games and generated artwork from the bundled mock RomM server.)*
+## Contents
 
-# Overview
+1. [Features](#features)
+2. [Install](#install)
+3. [Configure](#configure)
+4. [Moving over from romm_sync or ROM Mapper](#moving-over-from-romm_sync-or-rom-mapper)
+5. [How the two parts fit together](#how-the-two-parts-fit-together)
+6. [HTTP API](#http-api)
+7. [Code map](#code-map)
+8. [Development, tests and releases](#development-tests-and-releases)
+9. [Credits & license](#credits--license)
 
-*From the original author, amn-96:*
+---
 
-I've found that Romm is a nice way to have a "source of truth" for my game library, but for now, full-featured clients like [Grout](https://github.com/rommapp/grout) are not supported for all handhelds and Romm's planned sync feature is not ready (yet). If you have multiple handhelds whose saves are kept in sync with syncthing and want a way to have those in RomM so you can switch back and forth at will, **romm_sync** might help!
+## Features
 
-This all started when I set up Syncthing between my devices with Retroarch-based OS's (Android, MuOS, Knulli,...) and Minarch-based OS's (MinUI, NextUI) and none of the folders lined up properly and forced me into making a tedious Syncthing folder setup. Doable yes, but annoying. I had my Romm instance sitting right there and an opportunity to practice my Python for work so now...here we are.
+### Save sync ([reference](docs/save-sync.md))
 
-## What you'll need
-- A server or NAS (e.g. Unraid) that hosts a central file sync location. Syncthing works well, but technically it could be anything.
-- A self hosted instance of RomM that is accessible from the machine this app runs on. RomM 4.5+ works; **5.x is recommended** (content hashes make change detection more precise).
-- Docker to deploy the app.
+| Area | What it does |
+|---|---|
+| Two-way sync | Saves and states that changed on one side sync by themselves, in both directions. You're only asked when a file changed on both sides, was deleted on one side but changed on the other, or two copies differ with no history. |
+| Dashboard | Live progress, every system with a status bar, every game with its RomM cover and latest save-state screenshot, and what needs your attention. |
+| Conflicts | Nothing is overwritten: compare both versions side by side, keep one or both. Backups are made before any overwrite. |
+| Saves page | Every save and state on both sides with filters, bulk delete/download/upload, version history (put back any copy), `.zip` export, and linking saves to RomM games by hand. |
+| Deletions | Synced both ways through a recycle bin, with safety rails (only unchanged files, never more than 10 at once). |
+| Platforms | Each system folder of your saves matched to a RomM platform, using RomM's own platform list and folder aliases. |
+| Settings, notifications | Change behaviour from the page; Discord, ntfy, Gotify, Pushbullet or webhook notifications; optional Syncthing integration. |
+| Disks sleep | RomM is polled through its API; your folders are only re-read when something changed. |
 
-## How it works
-1. Gaming devices sync save files to a central location via Syncthing.
-2. `romm_sync` detects new/modified saves and states in this "local library".
-3. It matches the contents of your library with the content on your RomM instance.
-4. For each save/state it compares both sides against what they looked like at the last sync, and then either syncs it, asks you, or flags a conflict.
+### ROM folders ([reference](docs/rom-folders.md))
 
-```
-Gaming Devices (RetroArch, etc.)
-         ↕ (Syncthing)
-    Central Sync Folder  ←──────────────┐
-         ↕ (romm_sync watches + polls)  │ approvals / conflicts
-    RomM (via API)                      │
-         ↕                              │
-    Web dashboard :8080 ────────────────┘
-```
+| Area | What it does |
+|---|---|
+| Frontend links | A grid with one row per folder in your source folders and one column per frontend. Type the name a frontend should see; **Resync** makes `<mapping folder>/<frontend>/<name>` links, optionally with each system's `media/` folder. |
+| Status, schedule | Rows marked *New*, *Unmapped*, *Missing*; duplicate names highlighted. Scans and resyncs on their own schedule; a resync changes only what differs. |
+| RomM library | Pick the RomM platform for any of your download folders (nested too); get the **volume lines** for RomM's compose file (each folder mounted as `roms/<platform>`) and a `config.yml` with categories for platforms with subfolders. One-time import of an old RomM mapping CSV. |
 
-### What gets synced automatically and what asks first
+### Shared
 
-| Situation | What happens | Setting |
+One port, one menu, RomM's look in light and dark, one optional password, one log (**Logs**
+page), one app data folder, a Docker health check, an Unraid template, and a release with a Docker
+image for every change.
+
+---
+
+## Install
+
+romm_tools needs these mounts - leave out the ones of a part you don't use:
+
+| Container path | What | Part |
 |---|---|---|
-| A file changed **only locally** since the last sync | Uploaded automatically | — |
-| A **new** local file RomM has never seen | Uploaded automatically | `PUSH_NEW_MODE=auto\|confirm` |
-| A file is **new or changed on RomM** only | Downloaded automatically | `PULL_MODE=auto\|confirm\|off` |
-| A file changed **on both sides** | **Asks**: conflict | `FORCE_PUSH_SYNC=true` makes local always win |
-| A synced file is **deleted on one side** and unchanged on the other | The other side's copy is removed too and kept in the **Recycle bin** | `DELETE_MODE=auto\|ask\|off` |
-| A deleted file was **changed on the other side** since the last sync | **Asks** (the change might matter) | — |
-| Both copies exist and **differ, with no sync history** yet, and RomM's is newer | **Asks** (unclear which has your progress) | — |
+| `/data` | App data: sync history, approvals, backups, recycle bin, logs, ROM folders mapping and settings. **Keep it persistent.** | both |
+| `/syncdata/saves`, `/syncdata/states` (or `/syncdata` for one folder) | Your saves and states folders, one subfolder per system | save sync |
+| **the same path as on the host** | ONE folder containing your ROM folders, the frontend links folder and RomM's download folders (Unraid: `/mnt/user`). Links are absolute, so they must resolve the same way outside the container. | ROM folders |
 
-Every question shows *why* it's being asked. Files that fail to sync appear under **Errors** with a plain explanation (for example "the API token lacks permission to write saves", "the sync folder is read-only", "RomM rejected the file as too large"), plus **Retry**/**Dismiss** buttons. They clear themselves once they sync.
-
-If you skip an item, you won't be asked about it again until one of the two copies changes.
-
-**Upgrading from the original romm_sync:** the first time this version sees a file on both sides, there is no sync history to compare against yet. It falls back to the original rule: if the local copy is newer it gets uploaded, otherwise it is assumed to be in sync. On RomM 5.x, saves carry a content hash, so a save that really differs and is newer on RomM is offered for download instead. No false conflicts are raised on the first run.
-
-## Some caveats
-
-### Limited scope of save support
-*(original author)* I wrote this mainly for my uses, so it's probably not taking everybody possible folder structure into account. My Retroarch instance is configured similar to the Knulli defaults, so it should cover common usage patterns.
-
-- Sort Saves by Content Directory
-- Sort States by Content Directory
-
-### Possible incompatibilities
-It *does not* sort states by core, though I had some leftover different cores for Nintendo DS that seemed to work ok. This will work best with save (.srm) files, and, if you're consistent in the cores you use, .state files should "just work" as well.
-
-The implicit assumption here is that the game files (ROM, with one M) on your device are *already* the same files as the ROMs in your RomM library. Set up your RomM library before trying to run this app. RomM allows you to map your *local* directory names to *their supported platform names* ("slugs") to make library management easier. [See the docs here.](https://docs.romm.app/latest/Getting-Started/Configuration-File/?h=platform+name#custom-folder-names)
-
-### Downloads land next to the files your devices already use
-Files pulled from RomM are written into the same `<sync folder>/<system folder>/` layout, named the way RetroArch expects (`Game (USA).srm`, `Game (USA).state1` + `.state1.png`). RomM-only games are placed in an existing system folder that maps to the game's RomM platform. If you have no folder for that system yet, create it and check it on the Platforms page.
-
-### Still not a full RomM client
-This doesn't download ROMs or manage your library. For devices that can run a real RomM client (e.g. Grout), that's still the better choice. This tool is for the devices that can't.
-
-# Install
-
-## Unraid
+### Unraid (template)
 
 1. Add the template. Open the Unraid terminal (**>_** in the top bar) and run:
    ```bash
-   wget -O /boot/config/plugins/dockerMan/templates-user/my-romm-sync.xml \
-     https://raw.githubusercontent.com/sireteanu/romm_syncthing_sync/HEAD/unraid/romm-sync.xml
+   wget -O /boot/config/plugins/dockerMan/templates-user/my-romm-tools.xml \
+     https://raw.githubusercontent.com/sireteanu/romm_tools/HEAD/unraid/romm-tools.xml
    ```
-2. Go to **Docker → Add Container**, pick **romm-sync** from the **Template** dropdown, and fill in:
-   - **Saves folder** / **States folder**: your Syncthing folders, e.g. `/mnt/user/syncthing/saves`
-   - **App data**: `/mnt/user/appdata/romm-sync`
-   - **RomM URL** and **RomM API token**
+2. Go to **Docker → Add Container**, pick **romm-tools** from the **Template** dropdown, and fill in:
+   - **App data**: `/mnt/user/appdata/romm-tools`
+   - Save sync: **Saves folder** / **States folder** (e.g. `/mnt/user/syncthing/saves`), **RomM URL**
+     and **RomM API token**
+   - ROM folders: **Emulation folder (same path)** (default `/mnt/user`), **ROM source folders** and
+     **Frontend links folder**
 3. **Apply**, then click the container icon → **WebUI**.
 
-If your saves and states live in **one** folder: switch to **Advanced View**, remove the States folder path and the `SAVE_SYNC_FOLDER` / `STATE_SYNC_FOLDER` variables, change the Saves folder's container path to `/syncdata`, and add a variable `ALL_SYNC_FOLDER` = `/syncdata`.
+Only ROM folders? Set **Save sync** (advanced view) to `false` and remove the saves/states paths.
+Only save sync? Set **ROM folders** to `false` and remove the emulation folder path.
+Saves and states in **one** folder: switch to **Advanced View**, remove the States folder path and the
+`SAVE_SYNC_FOLDER` / `STATE_SYNC_FOLDER` variables, change the Saves folder's container path to
+`/syncdata`, and add a variable `ALL_SYNC_FOLDER` = `/syncdata`.
 
-## Docker Compose
+### Unraid (Compose Manager)
 
-Download `docker-compose.yml` and `.env.example` to a folder, edit `.env.example` (see below), then:
+Docker > Compose > Add New Stack `romm-tools` > Edit Stack, paste
+[`unraid/docker-compose.yml`](unraid/docker-compose.yml), set the paths and RomM settings, then
+**Compose Up**. Every Compose Up pulls the latest image.
+
+### Docker Compose (any Linux host)
+
+Download [`docker-compose.yml`](docker-compose.yml) and [`.env.example`](.env.example) to a folder, then:
 
 ```bash
+cp .env.example .env     # set the paths, RomM address and token
 docker compose up -d
 ```
 
-Open `http://<server>:8080`.
+Open `http://<server>:8080`. Remove the volume lines (and switch off the part in `.env`) of a part you
+don't use - compose refuses an empty path.
 
-> The sync folders are now mounted **read-write** so RomM → folder sync can work. If you only ever want folder → RomM, add `:ro` back to those mounts and set `PULL_MODE=off`.
+### Without Docker (Linux)
+
+```bash
+pip install -r requirements.txt
+DATA_DIR=/path/to/appdata/romm-tools SRC_BASE=/path/to/roms DEST_PATH=/path/to/mapping \
+  ROMM_URL=http://romm:8080 ROMM_API_TOKEN=... SAVE_SYNC_FOLDER=1 STATE_SYNC_FOLDER=1 \
+  python romm_tools.py
+```
+
+Save sync reads its folders from the fixed paths `/syncdata/saves` and `/syncdata/states`, so create
+those (or links to your folders) first. One-off ROM folders resync without the page:
+`python romm_tools.py --resync` (in Docker: `docker exec romm-tools python romm_tools.py --resync`).
+
+**Update:** pull the new image (`docker compose pull && docker compose up -d`, or *Check for updates*
+on Unraid). Settings, history and mapping are kept in `/data`.
+
+---
 
 ## Configure
 
-All settings are environment variables (`.env.example`, or the Unraid template).
+All settings are environment variables (`.env.example`, or the Unraid template). Most save sync
+settings can also be changed on the **Settings** page; ROM folders' source folders, frontends,
+schedule and RomM choices are set in its pages.
 
-### RomM
-
-**`ROMM_URL`** (required): your RomM instance's address.
-
-**`ROMM_AUTH_TYPE`** (required): `api` (recommended) or `http`. "api" lets publicly hosted RomM instances stay locked behind OIDC.
-
-**`ROMM_API_TOKEN`** (required for api auth): in RomM, click your profile image → **Client API Tokens** → Create. The token needs read access to ROMs and platforms and **read + write for saves/states (assets)**. The original author's limited set below works. It can't write to the ROM library, collections or users:
-
-![Limited API Token Permissions](docs/api_token_permissions.png)
-
-**`ROMM_USERNAME` / `ROMM_PASSWORD`** (required for http auth).
-
-**`ROMM_API_LIMIT`** (optional): page size when reading the RomM library. Default 500 (RomM allows up to 10,000). Only platforms that have a folder in your sync folders are read, and RomM is asked to skip the gallery extras it normally computes for every page, so even large libraries read quickly.
-
-### Sync folders
-
-#### Single sync folder
-All saves and states sorted by content directory in one parent folder (Knulli-style):
-```
-{SYNC_FOLDER}/
-├── Nintendo 64/
-│   ├── Game Name.srm
-│   ├── Game Name.state
-│   └── Game Name.state.png
-└── Game Boy Advance/
-    ├── Another Game.srm
-    └── Another Game.state
-```
-Use only **`ALL_SYNC_FOLDER`**.
-
-#### Separate save and state parents
-*(original author)* This is the way I do it because CFWs like MuOS and MinUI/NextUI put their saves and states in completely different places, but still sort by content directory.
-```
-{SAVE_SYNC_FOLDER}/            {STATE_SYNC_FOLDER}/
-├── Nintendo 64/               ├── Nintendo 64/
-│   └── Game Name.srm          │   ├── Game Name.state
-└── Game Boy Advance/          │   └── Game Name.state.png
-    └── Another Game.srm       └── Game Boy Advance/
-                                   └── Another Game.state
-```
-Use **`SAVE_SYNC_FOLDER`** and **`STATE_SYNC_FOLDER`**.
-
-### Sync mode
-
-**`SYNC_MODE`**:
-- `watch` (default, recommended): full sync on start, then incremental syncs on file changes. RomM is also checked every `ROMM_POLL_INTERVAL_SECONDS`, because changes made on RomM don't create local file events.
-- `periodic`: full sync every `SYNC_INTERVAL_SECONDS`.
-
-**Lets your disks sleep (watch mode).** The app only ever reads the folders you map into it: your saves and states folders, and `/data`. It never reads your ROMs, because the game list comes from RomM's API. The RomM check is quiet: it asks RomM for its list of saves and states (no disk access). When something changed on RomM, only the games it changed for are synced, reading just their files. A save you changed is synced on its own, without re-reading the rest of the folder. The folders are read in full only at startup, on **Sync now**, and once every `FULL_SCAN_INTERVAL_HOURS` as a safety net (`0` = never). The dashboard shows when that last happened (*Last folder scan*).
-
-On Unraid, the best setup is to keep the saves/states share and `appdata` on a cache pool (*Primary storage: Cache*, *Secondary storage: None*). Then nothing this app or Syncthing does can spin up array disks.
-
-A full sync now fetches all saves and states in two API calls instead of two per game, so it's quick even for large libraries.
+### Which parts run
 
 | Variable | Default | |
 |---|---|---|
-| `WATCHDOG_DELAY_SECONDS` | 60 | watch: quiet time after file activity before syncing |
-| `ROMM_POLL_INTERVAL_SECONDS` | 600 | watch: how often to check RomM for changes. `0` = only when you click **Sync now** |
-| `FULL_SCAN_INTERVAL_HOURS` | 24 | watch: re-read the sync folders anyway this often, in case a file change was missed. `0` = only at startup and on **Sync now** |
-| `SYNC_INTERVAL_SECONDS` | 1800 | periodic: seconds between full syncs (each one reads the sync folders) |
-| `FULL_INITIAL_SYNC` | true | `true`, `false`, or `force` (force-push once on startup) |
-| `FORCE_PUSH_SYNC` | false | local always wins, even over conflicts. Dangerous |
-| `DRY_RUN` | false | test mode: nothing is uploaded, downloaded or deleted; syncs only log what they would do. Also a switch on the Settings page |
+| `SAVE_SYNC` | auto | `auto`: on as soon as `ROMM_URL` or a sync folder is set. `true` / `false` |
+| `ROM_FOLDERS` | true | `false` hides Frontend links and RomM library and stops their schedule |
 
-### Two-way sync & approvals
+When save sync is on but a required setting is missing, the container keeps running: the log and a
+banner on the ROM folders page say what's missing.
+
+### Shared
 
 | Variable | Default | |
 |---|---|---|
-| `PUSH_NEW_MODE` | auto | new local files → RomM: `auto` or `confirm` (ask for every new file) |
-| `PULL_MODE` | auto | RomM → folder: `auto`, `confirm` or `off` |
-| `BACKUP_RETENTION_DAYS` | 30 | keep backups of overwritten files this long (`0` = forever) |
-| `DELETE_MODE` | auto | a synced file deleted on one side: `auto` (remove the other copy too, into the recycle bin), `ask`, or `off` (never delete; asks to re-download/re-upload) |
-| `RECYCLE_RETENTION_DAYS` | 30 | clear recycle bin items after this many days (`0` = never) |
-| `ROMM_KEEP_VERSIONS` | 0 | RomM keeps a copy per upload; keep only this many per file and move older ones to the recycle bin after each sync (`0` = keep all). The copy your folder is synced with is always kept |
-| `DATA_FOLDER` → `/data` | `./data` | sync history, pending approvals, backups. **Keep this persistent**, it's how changes on each side are told apart |
-| `PUID` / `PGID` | — | owner of files written into the sync folders (Unraid: `99` / `100`) |
-| `FILE_MODE` | 0777 | permissions for files and folders written into the sync folders and backups (also on the Settings page) |
+| `DATA_FOLDER` → `/data` | `./data` | app data on the host (compose) |
+| `WEB_HOST_PORT` | 8080 | host port of the web page (compose) |
+| `WEB_USERNAME` / `WEB_PASSWORD` | empty | optional basic auth for the whole page, both parts. Also on the Settings page |
+| `PUID` / `PGID` | - | owner of files written into the sync folders and of the frontend links and their folders (Unraid: `99` / `100`) |
+| `FILE_MODE` | 0777 | permissions for files written into the sync folders and backups |
+| `TZ` | UTC | log timestamps and the ROM folders schedule |
+| `LOG_LEVEL` | INFO | `DEBUG`, `INFO`, `WARNING`, `ERROR` |
+| `WEB_UI` | true | `false` turns the web page off (both parts keep running) |
 
-### Saves page
+There is no other login: don't expose the port to the internet without a password or a reverse proxy
+with authentication.
 
-![Saves page listing every save and state with where it exists, filters, and bulk actions](docs/screenshots/saves.png)
+### Save sync
 
-The **Saves** page lists every save and state, in your sync folders and on RomM, grouped by game. For each one it shows the size and age of the copy in your folder and on RomM, how many versions RomM holds, and whether the two copies match.
+`ROMM_URL`, `ROMM_AUTH_TYPE` (`api` recommended), `ROMM_API_TOKEN` (or `ROMM_USERNAME` /
+`ROMM_PASSWORD`), and `SAVE_SYNC_FOLDER` + `STATE_SYNC_FOLDER` (or `ALL_SYNC_FOLDER`) are required;
+everything else - sync mode, two-way behaviour, deletions, backups, RomM versions, Syncthing,
+notifications - is explained in [Save sync → Configure](docs/save-sync.md#configure).
 
-Filter by system, saves or states, or by where a file is (*In both*, *Folder only*, *RomM only*, *Different*, *Old versions*). Tick single files, whole games, or everything shown, then:
-- **Delete**: removes the files from your sync folder **and** RomM (every RomM version). Copies go to the recycle bin first. If the RomM copy differs from yours, both copies are kept in the bin.
-- **Remove old RomM versions**: RomM 5.x keeps a copy every time a file is uploaded. This keeps the newest and moves the older ones to the recycle bin. Your folder isn't changed.
-- **Download to folder** (files only on RomM) and **Upload to RomM** (files only in your folder that are matched to a RomM game).
+### ROM folders
 
-- **Download .zip**: the selected files laid out like your sync folders (`saves/<system>/…`, `states/<system>/…`), from your folder or RomM's newest copy. A quick off-server backup.
-
-Bulk actions run in the background with a progress bar; anything that fails is listed with the reason. The page reads your sync folders only when you open or reload it.
-
-**Version history.** Click a file name to see every copy the app knows about: the one in your folder, each version RomM keeps, the backups made before overwrites, and recycle bin entries. **Download** any of them, or **Put back** one into your sync folder (the current copy is backed up first). The next sync uploads it to RomM. Handy when a save got corrupted or you want to go back to before a bad decision.
-
-![Version history of a save: copies in the folder, on RomM, in backups and in the recycle bin](docs/screenshots/history.png)
-
-### Recycle bin
-
-![Recycle bin page listing deleted saves with Download, Restore and Delete buttons](docs/screenshots/recycle.png)
-
-When you delete a synced save or state on one side, the copy on the other side is deleted as well. It isn't destroyed: it's moved to the **Recycle bin** (`/data/recycle`) first.
-- Delete a save in your sync folder → it's downloaded from RomM into the bin, then removed from RomM (all of RomM's versions of it).
-- Delete a save in RomM → the local file (and its screenshot) is moved into the bin.
-
-On the Recycle bin page you can **Restore** an item (it goes back into your sync folder and the next sync uploads it to RomM again), **Download** it, **Delete** it forever, or **Empty recycle bin**. Items are cleared automatically after `RECYCLE_RETENTION_DAYS` (Settings → *Clear the recycle bin after*; `0` = never).
-
-Safety rails:
-- Only deletes a file that is **unchanged** on the other side since the last sync. If it was changed there, you're asked instead.
-- If more than **10** files would be deleted in one sync (a folder unmounted, a share offline…), nothing is deleted. They're listed under **Needs attention → Deletions** with *Delete all* / *Bring all back*.
-- Set `DELETE_MODE=ask` to confirm every delete, or `off` to never carry deletions over.
-
-### Web UI
-
-| Variable | Default | |
+| Variable | Compose `.env` | |
 |---|---|---|
-| `WEB_UI` | true | turn the dashboard off with `false` |
-| `WEB_HOST_PORT` | 8080 | host port (compose) |
-| `WEB_USERNAME` / `WEB_PASSWORD` | empty | optional basic auth for the dashboard |
+| (volume) | `EMULATION_ROOT` | the one folder mounted at the same path |
+| `SRC_BASE` | `ROMS_PATH` | first source folder(s), `;`-separated, until set in the page |
+| `DEST_PATH` | `MAPPING_PATH` | the frontend links folder, one sub-folder per frontend. A folder of its own |
+| `ROMM_SOURCE` | `ROMM_SOURCE` | RomM download folders, `;`-separated, until set in the page |
+| `CONFIG_DIR` | - | where ROM folders keeps its files (default: `/data`) |
 
-The dashboard has no other login. Don't expose it to the internet without a password or a reverse proxy with auth.
+See [ROM folders → Settings and files](docs/rom-folders.md#settings-and-files).
 
-### Platform mapping
+---
 
-Each system folder in your sync folders (`snes`, `md`, `Nintendo 64`, …) has to point at a RomM platform so its saves can be matched to games. Open the **Platforms** tab in the dashboard to see how every folder resolves and fix the ones that don't:
+## Moving over from romm_sync or ROM Mapper
 
-![Platforms page: each sync folder with the RomM platform it matches, how it was matched, and a searchable picker](docs/screenshots/platforms.png)
+- **romm_sync** (sireteanu/romm_syncthing_sync): use the same app data folder for `/data` and the
+  same saves/states mounts. Sync history, approvals, backups, recycle bin, Settings-page values and the
+  platform mapping are picked up as they are; nothing is synced again. Old images were
+  `ghcr.io/sireteanu/romm_syncthing_sync`; the new one is `ghcr.io/sireteanu/romm_tools`.
+- **ROM Mapper** (sireteanu/rom-mapper): copy `rom-mapper-mapping.json`, `rom-mapper-state.json` and
+  `romm-mapper.json` from its config folder into the app data folder (or mount the old folder and
+  set `CONFIG_DIR` to it), and mount the same emulation folder at the same path. The links, schedule
+  and RomM choices carry on unchanged. Its page moved from port 8085 to `http://SERVER:8080/roms/`.
+  ROM Mapper ran as `99:100`; romm_tools runs as root for save sync, so set `PUID=99` / `PGID=100`
+  to keep new links owned by your share's user.
+- Running both old containers? Stop them after romm_tools is up, so two apps don't sync or resync
+  the same folders.
 
-Use the **Sync** switch on a row to stop syncing a system (for example arcade) without removing its folder. Its files are left alone in both directions until you switch it back on.
+---
 
-Folders are resolved in this order, and most never need a mapping:
+## How the two parts fit together
 
-1. **Mapped**: chosen on the Platforms page (pre-filled with common folder names)
-2. **Exact**: the folder name is a RomM platform slug (`snes`, `gba`, `n64`…)
-3. **RomM folder**: the folder has the same name as that platform's folder in *your* RomM library
-4. **RomM alias**: one of RomM's built-in folder aliases for Batocera / RetroBat / ES-DE names (`megadrive`, `amstradcpc`, `atarilynx`…)
+```
+                        romm_tools container (one process)
+ ┌──────────────────────────────────────────────────────────────────────────────┐
+ │  web server :8080 (FastAPI)       optional password, one menu, one log       │
+ │   ├─ /            save sync pages ── src/web.py, src/web_static/             │
+ │   └─ /roms/       ROM folders pages ─ src/mapper/ (Flask app, mounted)       │
+ │                                                                              │
+ │  save sync loop (watch / periodic)   ROM folders scheduler (scan / resync)   │
+ │   /syncdata ⇄ RomM API               source folders → links in DEST_PATH     │
+ │                                       download folders → RomM volume lines   │
+ │  /data: history, backups, recycle bin, logs, platform catalog, ROM mapping   │
+ └──────────────────────────────────────────────────────────────────────────────┘
+```
 
-**Where the platform list comes from:** the full list of platforms RomM supports (459 at the time of writing) and RomM's folder aliases are downloaded from GitHub. Slugs and aliases come from [`rommapp/romm`](https://github.com/rommapp/romm), fetched at the tag that matches your RomM server's version when that tag exists, with display names from [`rommapp/docs`](https://github.com/rommapp/docs). The list is cached in `/data/romm_platforms.json` and refreshed weekly, or whenever you click **Update platform list from RomM GitHub**. If GitHub can't be reached, the cached list is used. In the picker, platforms that are already in your RomM library are listed first.
+- `romm_tools.py` reads the settings, decides which parts run, starts the ROM folders scheduler and
+  the web server, then runs save sync (or just waits, when it's off).
+- The two parts share the platform catalog (`/data/romm_platforms.json`, RomM's platform list from
+  GitHub): save sync uses it to match save folders, the RomM library picker adds its newer platforms.
+- Everything else stays separate: save sync never reads your ROMs (the game list comes from RomM's
+  API) and ROM folders never talks to RomM.
 
-**Starting point:** on first start the mapping is pre-filled with the common MinUI/NextUI and Knulli folder names from the original project (for example `md` and `megadrive` → Sega Mega Drive/Genesis, `sfc` → SNES). After that you manage it only on the Platforms page. Remove an entry with ✕ to fall back to automatic matching. It's stored in `/data`, so it survives updates.
+---
 
-See https://docs.romm.app/latest/Platforms-and-Players/Supported-Platforms/ for RomM's supported platforms.
+## HTTP API
 
-### Settings page & notifications
+JSON throughout; the pages use nothing else. With a password set, every path except `/api/health`
+needs it.
 
-Most behaviour can be changed on the dashboard's **Settings** tab instead of in the container config. Values saved there override the container's and apply immediately. Each one shows whether it comes from the container or was changed in the dashboard, with a **reset** link. Settings are stored in `/data/settings.json`. Saved tokens and passwords are never sent back to the browser.
+**Shared**
 
-**Notifications.** Add one or more services under Settings → Notifications:
-
-| Service | What you need |
+| Method & path | Purpose |
 |---|---|
-| Discord | A channel webhook URL (Channel → Edit → Integrations → Webhooks) |
-| ntfy | Server (default `https://ntfy.sh`), topic, optional access token |
-| Gotify | Server URL and an application token |
-| Pushbullet | Your access token (Pushbullet → Settings → Access Tokens) |
-| Webhook | Any URL; receives `{"title", "message", "priority", "url"}` as JSON |
+| `GET /api/features` | `{save_sync, rom_folders, save_sync_problem}`: which parts run |
+| `GET /api/health` | Docker health check (503 once syncs have failed for 15 minutes) |
 
-Pick what to be told about:
-- **Questions:** a conflict or other file needs your decision.
-- **Errors:** a file failed.
-- **Sync problems:** RomM unreachable, token rejected, and when it recovers.
-- **Sync activity:** off by default.
+**Save sync** (`/`)
 
-If you set the **Dashboard address**, messages link straight to it. Use **Send test** to check a service.
+| Method & path | Purpose |
+|---|---|
+| `GET /api/status` · `POST /api/sync` | Everything the dashboard shows · sync now |
+| `POST /api/actions/{id}` · `POST /api/actions/bulk` | Approve / reject / resolve pending items |
+| `POST /api/errors/retry` · `POST /api/errors/dismiss` | Failed files |
+| `GET /api/platforms` · `POST /api/platforms/refresh` · `PUT /api/platforms/mapping` · `PUT /api/platforms/enabled` | Platforms page |
+| `GET /api/saves` · `POST /api/saves/action` · `GET /api/saves/job` · `GET /api/saves/{id}/versions` (`/download`, `/restore`) · `POST /api/saves/zip` | Saves page |
+| `GET /api/romm/search` · `PUT /api/links` | Link a save to a RomM game by hand |
+| `GET /api/recycle` · `POST /api/recycle/empty` · `POST /api/recycle/{id}/restore` · `/delete` · `GET /api/recycle/{id}/download` | Recycle bin |
+| `GET /api/settings` · `PUT /api/settings` · `PUT /api/notifications` · `POST /api/notifications/test` | Settings page |
+| `GET /api/syncthing` · `GET /api/syncthing/folders` | Syncthing integration |
+| `GET /api/logs` · `GET /api/logs/download` | Logs page (both parts) |
+| `GET /img/romm`, `/img/local`, `/img/platform/{slug}` | Covers, state screenshots, platform icons |
 
-### Syncthing integration (optional)
+**ROM folders** (`/roms/`)
 
-Under Settings → Syncthing, enter your Syncthing address (e.g. `http://192.168.1.6:8384`) and API key (Syncthing → Actions → Settings → General), save, then tick the Syncthing folders that hold your saves and states. Then:
-- the app waits until Syncthing has finished receiving files in those folders before it syncs a change (at most 10 minutes), so a half-received save is never uploaded. You can lower *Wait after a file changes* to a few seconds;
-- the dashboard shows the devices sharing those folders, whether they're connected and how up to date they are.
+| Method & path | Purpose |
+|---|---|
+| `GET /roms/api/state` | Mapping (frontends, rows with status), `version` (for saving), `app_version`, source folders, paths, settings, last scan/resync, `sync_running` |
+| `PUT /roms/api/mapping` `{version, frontends, rows, resync?, force?}` | Save (409 if the mapping changed since `version`; `force` overrides); 400 with details on invalid names |
+| `PUT /roms/api/sources` `{sources: [{path, depth}]}` | Set the source folders (labels are kept per path) |
+| `POST /roms/api/scan` · `POST /roms/api/sync` · `GET /roms/api/sync` | Scan now · start a resync (409 when running) · resync status |
+| `PUT /roms/api/settings` | Schedule settings |
+| `GET /roms/api/activity` | Recent events |
+| `GET /roms/api/romm/platforms` | RomM's platform list (`slugs`), loaded once by the page |
+| `GET /roms/api/romm` · `PUT /roms/api/romm/options` · `PUT /roms/api/romm/map {path, action}` · `POST /roms/api/romm/links` · `POST /roms/api/romm/import` | RomM library data, options (download folders, `depths`, `skip_names`), a folder's choice, remove old platform links, one-time CSV import. While the folders are read in the background the answer is `{reading: {...}}` |
+| `GET /roms/api/romm/progress` | The background read: `running`, `source` / `sources`, `path`, `done` / `total`, `current`, `error` |
 
-Only Syncthing's read-only REST API is used; nothing in Syncthing is changed. Also settable with `SYNCTHING_URL`, `SYNCTHING_API_KEY` and `SYNCTHING_FOLDERS` (comma-separated folder IDs).
+---
 
-### Health check
+## Code map
 
-The image has a Docker health check (`/api/health`). The container is shown as **unhealthy** in Unraid/Docker when syncs have been failing for 15 minutes, for example because RomM is unreachable or the token was revoked. It turns healthy again after the next successful sync.
+```
+romm_tools.py            entry point: settings, which parts run, web server, save sync loop;
+                         --resync = one-off ROM folders resync
+src/web.py               the web server (FastAPI): save sync API, /api/features, mounts ROM folders
+src/web_static/          save sync pages (one HTML file, no build step)
+src/config.py            settings from the environment, SAVE_SYNC / ROM_FOLDERS switches
+src/sync_orchestrator.py save sync loop: watch / periodic, RomM poller      (amn-96, extended)
+src/sync_engine.py       two-way decisions, transfers, backups               (fork)
+src/sync_state.py        sync history, pending approvals, log sink           (fork)
+src/library_classes.py   local library scan and RomM matching                (amn-96, extended)
+src/games_class.py       per-game save/state handling                        (amn-96)
+src/romm_api_func.py     RomM API client                                     (amn-96, extended)
+src/platforms.py         RomM platform catalog from GitHub, platform mapping (fork)
+src/manage.py            Saves page: inventory, bulk actions, history, zip   (fork)
+src/recycle.py           recycle bin                                         (fork)
+src/settings.py          Settings page values                                (fork)
+src/notify.py            notifications                                       (fork)
+src/syncthing.py         Syncthing integration (read-only)                   (fork)
+src/version.py           version and update check
+src/mapper/server.py     ROM folders (Flask): mapping storage, source folders, scan, resync,
+                         scheduler, RomM library endpoints                   (ROM Mapper)
+src/mapper/links.py      link engine: desired links, apply only the differences (ROM Mapper)
+src/mapper/romm.py       RomM library: folder roles, platforms as mounts, categories, config.yml
+src/mapper/romm_slugs.py RomM's platform list (vendored)
+src/mapper/static/       ROM folders page (one HTML file, no build step)
+tests/                   save sync tests, mock RomM and demo data; test_romm_tools.py = the glue
+tests/mapper/            ROM folders tests (test_mapping, test_romm, test_upgrades)
+unraid/                  Unraid template and Compose Manager file
+.github/workflows/       tests.yml (every push), release.yml (a release per push to main)
+docs/                    user guide, references, design notes, old changelogs, screenshots
+```
 
-# Releases
+---
 
-Every push to the default branch (`public`) creates a release automatically ([`.github/workflows/release.yml`](.github/workflows/release.yml)):
-1. tests run;
-2. the version is `VERSION` if that tag doesn't exist yet, otherwise the patch number is bumped (2.0.0 → 2.0.1 → …);
-3. a git tag and GitHub release with generated notes are created;
-4. `ghcr.io/sireteanu/romm_syncthing_sync:{version}`, `:{major.minor}` and `:latest` are published (amd64 + arm64).
-
-Bump `VERSION` for a new minor/major. Add `[skip release]` to a commit message to push without releasing.
-
-# Developing
+## Development, tests and releases
 
 ```bash
-pip install -r requirements.txt pillow
-python -m pytest tests                 # decision-rule unit tests
-python -m tests.mock_romm --port 8099  # fake RomM 5.4 API with demo games
-python -m tests.demo_setup /tmp/demo   # matching demo sync folders
+pip install -r requirements.txt -r requirements-dev.txt
+python -m pytest tests                       # everything runs on temporary folders
+python -m pyflakes romm_tools.py src tests
+python -m tests.mock_romm --port 8099        # fake RomM 5.4 API with demo games
+python -m tests.demo_setup /tmp/demo         # matching demo sync folders
 ```
-The app reads its folders from fixed container paths (`/syncdata/saves`, `/syncdata/states`). To run it outside Docker, create those paths (or symlinks to `/tmp/demo/...`) and start it with:
+
+To run against the mock: link `/syncdata/saves` and `/syncdata/states` to `/tmp/demo/saves` and
+`/tmp/demo/states`, then
+
 ```bash
 ROMM_URL=http://127.0.0.1:8099 ROMM_AUTH_TYPE=api ROMM_API_TOKEN=x \
-SAVE_SYNC_FOLDER=1 STATE_SYNC_FOLDER=1 DATA_DIR=/tmp/demo/data \
-SYNC_MODE=watch python romm_sync.py
+SAVE_SYNC_FOLDER=1 STATE_SYNC_FOLDER=1 DATA_DIR=/tmp/demo/data SYNC_MODE=watch \
+SRC_BASE=/tmp/demo/roms DEST_PATH=/tmp/demo/mapping python romm_tools.py
 ```
 
-See [docs/TWO_WAY_SYNC.md](docs/TWO_WAY_SYNC.md) for how the sync engine decides what to do, and [docs/IMPLEMENTATION_SUMMARY.md](docs/IMPLEMENTATION_SUMMARY.md) for the original architecture write-up.
+**Releases.** Every push to `main` is released automatically
+([`.github/workflows/release.yml`](.github/workflows/release.yml)):
 
-### How saves are matched to games
+1. the tests run;
+2. the version is `VERSION` if that tag doesn't exist yet, otherwise the next patch number
+   (1.0.0 → 1.0.1 → …);
+3. a git tag and GitHub release are created; the release text is that version's `## [x.y.z]`
+   section of [CHANGELOG.md](CHANGELOG.md), or notes generated from the commits if there is none;
+4. `ghcr.io/sireteanu/romm_tools:{version}`, `:{major.minor}` and `:latest` are published (amd64 + arm64);
+5. correcting a changelog section later updates that release's text.
 
-- **Files from RomM's own player and other devices** are renamed to what RetroArch expects when they're downloaded. RomM 5.x stores them under other names: `autosave [2026-08-17_19-02-17].srm`, `Game [date].autosave.state0`. These become `Game (USA).srm` and `Game (USA).state` (slot 0 is `.state` in RetroArch), matching the ROM's file name (or your save's own name, if it was matched by title or linked by hand). RetroArch keeps one save file per game, so when several RomM versions map to the same name, the newest one is synced. That's how progress from the web player or another device reaches your handhelds. The older versions are still on RomM: see them under **Version history** on the Saves page, put one back, or have old ones cleared automatically with `ROMM_KEEP_VERSIONS`.
+Raise `VERSION` for a new minor/major. Add `[skip release]` to a commit message to push without
+releasing. The **Tests** workflow runs on every push. Every behaviour change gets a test, anything
+that reads older files gets a case in `tests/mapper/test_upgrades.py` (ROM folders) or keeps save
+sync's stored file names, and documentation (this README, the references, the user guide, the
+changelog) is updated in the same commit.
 
-- **One game per system folder.** A save belongs to the game in the same system folder: `gb/Tetris (World).srm` and `gbc/Tetris (World).srm` are two different games, each matched to its own RomM ROM. A save and a state of the same game in separate saves/states folders (`saves/gba/…`, `states/gba/…`) are still one game.
-- **Exact name first.** A save named after the ROM file (`Pokemon Red (USA, Europe).srm` ↔ `Pokemon Red (USA, Europe).gb`) is matched exactly. A shorter name only matches a ROM whose file name *starts* with it, and the closest one wins. Text in the middle of a name never matches, so "Mario" can't pick "Super Mario World".
-- **Same title, different spelling.** If neither of those matches, a save matches a ROM with the same title once punctuation, region/version tags and trailing articles are ignored: `zelda_spirit_tracks.sav`, `The Legend of Zelda: Spirit Tracks.sav` and `Legend of Zelda, The - Spirit Tracks (USA) (En,Fr,Es).nds` all count as the same title, and RomM's own game name counts too. If several ROMs share that title, the one with the same region tags wins; if that's still a tie, nothing is guessed.
-- **Link by hand.** For anything else (a renamed save, a hack, a save from another emulator), open the **Saves** page, filter by *Not matched* and click **Link to a RomM game…**. Pick the game; its saves and states then sync with it, and files from RomM are written under your save's name so your emulator finds them. Links are stored in `/data/game_links.json` and can be changed or removed the same way. A ROM can only be linked to one local game.
+---
 
-  ![Linking an unmatched save to a RomM game](docs/screenshots/link.png)
-- **Dots in names** ("Dr. Mario (USA).srm", "Super Mario Bros. 3") are handled everywhere, including watch mode.
-- **Two folders, one platform.** If two of your folders point at the same RomM platform (e.g. `md` and `megadrive`) and both contain the same game, the first is synced and the other is listed under **Errors** with an explanation, instead of the two copies overwriting each other on RomM.
+## Credits & license
 
-# Known issues
-
-- ~~Saves must be named after the ROM file.~~ Saves with the same title in another spelling match automatically, and anything else can be linked by hand on the Saves page (2.11.0).
-- ~~RomM 5.x versions: the newest wins and older ones are hidden.~~ RetroArch uses one save per game, so the newest version is still the one synced, but every older version can be seen, downloaded and put back from Version history, and cleaned up with `ROMM_KEEP_VERSIONS` (2.10.0).
-- ~~Retroarch's state screenshots are not linked to the corresponding state file on the RomM server.~~ Fixed in RomM.
-- ~~Only HTTP Basic Authentication.~~ API tokens supported since 1.4.0.
-- ~~Syncthing only PUSHES to RomM.~~ RomM → folder sync added in 2.0.0.
-
-# Credits & license
-
-- Original project: **[romm_syncthing_sync](https://github.com/amn-96/romm_syncthing_sync) by [amn-96](https://github.com/amn-96)**. Thank you!
-- Fork changes: [sireteanu](https://github.com/sireteanu).
-- [RomM](https://github.com/rommapp/romm) by the RomM team. This project only uses its public API.
+- Save sync: original project **[romm_syncthing_sync](https://github.com/amn-96/romm_syncthing_sync)
+  by [amn-96](https://github.com/amn-96)**. Thank you!
+- Save sync's web GUI and two-way sync: [sireteanu](https://github.com/sireteanu), first in
+  [sireteanu/romm_syncthing_sync](https://github.com/sireteanu/romm_syncthing_sync).
+- ROM folders: [sireteanu/rom-mapper](https://github.com/sireteanu/rom-mapper).
+- [RomM](https://github.com/rommapp/romm) by the RomM team. This project only uses its public API
+  and its public platform list. It isn't made by, affiliated with, or endorsed by the RomM project.
 
 MIT License. See [LICENSE](LICENSE) (original copyright retained) and [NOTICE.md](NOTICE.md).

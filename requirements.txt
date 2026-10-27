@@ -1,3 +1,4 @@
+# romm_tools runtime
 requests>=2.28.0
 watchdog>=4.0.1
 python-dotenv>=1.0.0
@@ -5,11 +6,6 @@ loguru>=0.7.0
 pyyaml>=6.0
 fastapi>=0.110
 uvicorn>=0.29
-
-# testing
-flake8
-pytest
-httpx  # FastAPI TestClient (tests)
-black>=24.0.0
-isort>=5.13.0
-pylint>=3.0.0
+# ROM folders (from rom-mapper): its Flask app runs inside the FastAPI server through a2wsgi
+flask>=3.0
+a2wsgi>=1.10

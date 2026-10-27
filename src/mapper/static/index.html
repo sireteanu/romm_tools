@@ -3,27 +3,82 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ROM Mapper</title>
+<title>ROM folders · romm_tools</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%237c5cff'/%3E%3Cpath d='M9 12a7 7 0 0 1 12-3l2-2v6h-6l2-2a4 4 0 0 0-7 2zM23 20a7 7 0 0 1-12 3l-2 2v-6h6l-2 2a4 4 0 0 0 7-2z' fill='white'/%3E%3C/svg%3E">
 <style>
+  /* Same look as the save sync pages: RomM 5.x's colours, type and shapes
+     (frontend/src/v2/styles/tokens.css). Not affiliated with the RomM project. */
   :root {
-    --bg: #f6f7f9; --panel: #ffffff; --text: #1d2330; --muted: #667085; --border: #dfe3ea;
-    --accent: #3b5bdb; --accent-text: #fff; --danger: #c92a2a; --ok: #2b8a3e; --warn: #b7791f;
-    --new-bg: #e7f0ff; --missing-bg: #fff1f0; --input-bg: #fff; --hover: #f1f3f7;
+    --bg:#07070f; --surface:rgba(255,255,255,.07); --surface-2:rgba(255,255,255,.045); --surface-hover:rgba(255,255,255,.12);
+    --panel:#100c1c; --line:rgba(255,255,255,.1); --line-strong:rgba(255,255,255,.15);
+    --text:#ffffff; --muted:rgba(255,255,255,.55); --faint:rgba(255,255,255,.45);
+    --accent:#8b74e8; --accent-hover:#a18fff; --accent-ink:#ffffff; --accent2:#e1a38d;
+    --ok:#4ade80; --warn:#fbbf24; --bad:#f87171;
+    --bad-bg:rgba(255,80,80,.14); --accent-bg:rgba(139,116,232,.18); --glow:rgba(96,67,200,.35);
+    --r-md:8px; --r-pill:100px;
+    --font:"Segoe UI",-apple-system,BlinkMacSystemFont,system-ui,"Inter",Roboto,sans-serif;
+    --ease:cubic-bezier(0.22,1,0.36,1);
+    color-scheme:dark;
   }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #12151b; --panel: #1a1e26; --text: #e6e9ef; --muted: #8b93a3; --border: #2c323e;
-      --accent: #5c7cfa; --accent-text: #fff; --danger: #ff6b6b; --ok: #51cf66; --warn: #fcc419;
-      --new-bg: #1c2742; --missing-bg: #3a1d1f; --input-bg: #12151b; --hover: #222834;
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --bg:#f5f5fa; --surface:rgba(0,0,0,.035); --surface-2:rgba(0,0,0,.025); --surface-hover:rgba(0,0,0,.1);
+      --panel:#ffffff; --line:rgba(0,0,0,.1); --line-strong:rgba(0,0,0,.22);
+      --text:#111117; --muted:rgba(17,17,23,.74); --faint:rgba(17,17,23,.58);
+      --accent:#553e98; --accent-hover:#452788; --accent-ink:#ffffff; --accent2:#a85530;
+      --ok:#15a34a; --warn:#ca8a04; --bad:#dc2626;
+      --bad-bg:rgba(220,38,38,.1); --accent-bg:rgba(85,62,152,.1); --glow:rgba(161,143,255,.25);
+      color-scheme:light;
     }
   }
+  :root[data-theme="light"] {
+    --bg:#f5f5fa; --surface:rgba(0,0,0,.035); --surface-2:rgba(0,0,0,.025); --surface-hover:rgba(0,0,0,.1);
+    --panel:#ffffff; --line:rgba(0,0,0,.1); --line-strong:rgba(0,0,0,.22);
+    --text:#111117; --muted:rgba(17,17,23,.74); --faint:rgba(17,17,23,.58);
+    --accent:#553e98; --accent-hover:#452788; --accent-ink:#ffffff; --accent2:#a85530;
+    --ok:#15a34a; --warn:#ca8a04; --bad:#dc2626;
+    --bad-bg:rgba(220,38,38,.1); --accent-bg:rgba(85,62,152,.1); --glow:rgba(161,143,255,.25);
+    color-scheme:light;
+  }
+  /* the names this page used before, on top of those */
+  :root, :root[data-theme] {
+    --border:var(--line-strong); --accent-text:var(--accent-ink); --danger:var(--bad);
+    --new-bg:var(--accent-bg); --missing-bg:var(--bad-bg); --input-bg:var(--surface-2); --hover:var(--surface-hover);
+  }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--text);
-         font: 14px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-  header { padding: 16px 20px 8px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
-  h1 { font-size: 20px; margin: 0; }
-  h1 .ver { font-size: 12px; font-weight: 400; color: var(--muted); text-decoration: none; margin-left: 6px; }
-  h1 .ver:hover { text-decoration: underline; }
+  body { margin: 0; color: var(--text); font: 14px/1.4 var(--font); min-height: 100vh;
+         background: radial-gradient(1100px 520px at 12% -8%, var(--glow), transparent 70%),
+                     radial-gradient(900px 480px at 100% 0%, color-mix(in srgb, var(--accent2) 14%, transparent), transparent 70%),
+                     var(--bg);
+         background-attachment: fixed; }
+  a { color: var(--accent); }
+  /* shared top bar (same as the save sync pages) */
+  header.top { position: sticky; top: 0; z-index: 20; background: color-mix(in srgb, var(--bg) 78%, transparent);
+               backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-bottom: 1px solid var(--line); }
+  header.top .wrap { max-width: 1360px; margin: 0 auto; padding: 0 20px; display: flex; align-items: center; gap: 14px; height: 58px; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; letter-spacing: .2px; font-size: 16px; }
+  .brand .logo { width: 30px; height: 30px; border-radius: var(--r-md); background: linear-gradient(135deg, var(--accent-hover), #6043c8);
+                 display: grid; place-items: center; box-shadow: 0 2px 8px rgba(0,0,0,.2); }
+  .brand .ver { font-size: 11.5px; font-weight: 600; color: var(--muted); text-decoration: none; border: 1px solid var(--line);
+                border-radius: 99px; padding: 1px 8px; margin-left: 6px; vertical-align: 2px; font-variant-numeric: tabular-nums; }
+  .brand .ver:empty { display: none; }
+  .nav { display: flex; gap: 2px; margin-left: 18px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-pill);
+         padding: 3px; height: 38px; align-items: center; }
+  .nav a { height: 30px; padding: 0 11px; border-radius: var(--r-pill); color: var(--muted); text-decoration: none; font-weight: 600;
+           font-size: 13px; display: flex; align-items: center; white-space: nowrap; flex-shrink: 0;
+           transition: background .15s var(--ease), color .15s var(--ease); }
+  .nav a:hover { color: var(--text); }
+  .nav a.on { background: var(--text); color: var(--bg); }
+  .nav .sep { width: 1px; height: 18px; background: var(--line-strong); margin: 0 4px; flex: none; }
+  .iconbtn { border: 0; background: transparent; cursor: pointer; color: var(--muted); padding: 6px; border-radius: 8px; }
+  .iconbtn:hover { background: var(--surface-2); color: var(--text); }
+  @media (max-width: 860px) {
+    header.top .wrap { flex-wrap: wrap; height: auto; padding-top: 10px; padding-bottom: 10px; row-gap: 10px; }
+    .nav { order: 10; margin-left: 0; width: 100%; overflow-x: auto; scrollbar-width: none; }
+    .nav a { flex: 1 0 auto; justify-content: center; padding: 0 10px; }
+  }
+  .subhead { padding: 16px 20px 8px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  .subhead h1 { font-size: 20px; margin: 0; }
   .paths { color: var(--muted); font-size: 12px; padding: 0 20px; }
   .paths code { background: var(--panel); border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; }
   button { font: inherit; border: 1px solid var(--border); background: var(--panel); color: var(--text);
@@ -211,16 +266,28 @@
   @media (max-width: 900px) { .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   @media (max-width: 520px) { .cards { grid-template-columns: minmax(0, 1fr); } }
   @media (max-width: 640px) {
-    header, .toolbar, .cards, .paths { padding-left: 12px; padding-right: 12px; }
+    .subhead, .toolbar, .cards, .paths { padding-left: 12px; padding-right: 12px; }
     .table-wrap { margin: 0 12px 12px; }
     th.folder, td.folder { min-width: 160px; }
   }
 </style>
 </head>
 <body>
-<header>
-  <h1>ROM Mapper <a id="appVersion" class="ver" href="https://github.com/sireteanu/rom-mapper/releases" target="_blank" rel="noopener"></a></h1>
-  <nav class="maintabs" role="tablist" aria-label="Sections">
+<header class="top"><div class="wrap">
+  <div class="brand">
+    <div class="logo"><svg width="18" height="18" viewBox="0 0 32 32" aria-hidden="true"><path d="M9 12a7 7 0 0 1 12-3l2-2v6h-6l2-2a4 4 0 0 0-7 2zM23 20a7 7 0 0 1-12 3l-2 2v-6h6l-2 2a4 4 0 0 0 7-2z" fill="white"/></svg></div>
+    <div>romm_tools<a id="appVersion" class="ver" href="https://github.com/sireteanu/romm_tools/releases" target="_blank" rel="noopener" title="Release notes"></a></div>
+  </div>
+  <nav class="nav" aria-label="Sections">
+    <a href="../" data-feature="save_sync" hidden>Dashboard</a><a href="../#saves" data-feature="save_sync" hidden>Saves</a><a href="../#platforms" data-feature="save_sync" hidden>Platforms</a><a href="../#recycle" data-feature="save_sync" hidden>Recycle bin</a><span class="sep" data-feature="save_sync" hidden></span><a href="#links" data-pane="links" title="Folders of links for each emulation frontend">Frontend links</a><a href="#romm" data-pane="romm" title="Which of your ROM folders is which RomM platform">RomM library</a><span class="sep" data-feature="save_sync" hidden></span><a href="../#logs" data-feature="save_sync" hidden>Logs</a><a href="../#settings" data-feature="save_sync" hidden>Settings</a>
+  </nav>
+  <div class="spacer"></div>
+  <button class="iconbtn" id="themeBtn" title="Toggle light / dark" aria-label="Toggle light / dark"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor"/></svg></button>
+</div></header>
+<div id="syncBanner" class="banner" role="status" hidden></div>
+<div class="subhead">
+  <h1 id="paneTitle">Frontend links</h1>
+  <nav class="maintabs" role="tablist" aria-label="Sections" hidden>
     <button role="tab" data-pane="links" aria-selected="true" class="on" title="Folders of links for each frontend">Frontend links</button>
     <button role="tab" data-pane="romm" aria-selected="false" title="Map download folders to RomM platforms (links + config.yml)">RomM</button>
   </nav>
@@ -235,7 +302,7 @@
     <button id="rRefresh" title="Read the download folders again">Refresh</button>
     <button id="rApply" type="button" title="Remove the platform links older versions made (RomM reads your folders by name now)" hidden>Remove old platform links</button>
   </div>
-</header>
+</div>
 <main id="paneLinks">
 <div class="paths" id="paths"></div>
 <div id="banner"></div>
@@ -414,7 +481,7 @@ function setDirty(v) {
 // ------------------------------------------------------------- loading
 
 async function load({ keepEdits = false } = {}) {
-  const data = await api("GET", "/api/state");
+  const data = await api("GET", "api/state");
   if (keepEdits && dirty && model) {
     Object.assign(model, { settings: data.settings, last_scan: data.last_scan, last_sync: data.last_sync,
                            sync_running: data.sync_running, disk_error: data.disk_error, sources: data.sources,
@@ -435,10 +502,10 @@ function renderMeta() {
     pageVersion ??= model.app_version;
     const v = pageVersion;    // the page shows its own version, not the server's
     $("appVersion").textContent = "v" + v;
-    $("appVersion").href = `https://github.com/sireteanu/rom-mapper/releases/tag/v${v}`;
+    $("appVersion").href = `https://github.com/sireteanu/romm_tools/releases/tag/v${v}`;
     const box = $("updBanner");
     if (model.app_version !== pageVersion && box.hidden) {
-      box.innerHTML = `ROM Mapper was updated to <b>v${esc(model.app_version)}</b> - this page is still v${esc(pageVersion)}. ` +
+      box.innerHTML = `romm_tools was updated to <b>v${esc(model.app_version)}</b> - this page is still v${esc(pageVersion)}. ` +
         `<button type="button" class="primary">Reload the page</button>`;
       box.querySelector("button").onclick = () => {
         if (dirty && !confirm("You have unsaved changes in the grid. Reload anyway and lose them?")) return;
@@ -482,7 +549,7 @@ function renderMeta() {
 }
 
 async function loadActivity() {
-  const items = await api("GET", "/api/activity").catch(() => []);
+  const items = await api("GET", "api/activity").catch(() => []);
   $("log").innerHTML = items.map(i => `<div><time>${esc(new Date(i.time).toLocaleTimeString())}</time>${esc(i.msg)}</div>`).join("")
     || `<div class="hint">Nothing yet</div>`;
 }
@@ -633,11 +700,11 @@ async function save(resync) {
     frontends: model.frontends, rows: model.rows.map(r => ({ folder: r.folder, values: r.values })) };
   try {
     let res;
-    try { res = await api("PUT", "/api/mapping", payload); }
+    try { res = await api("PUT", "api/mapping", payload); }
     catch (e) {
       if (e.status !== 409) throw e;
       if (!confirm("The mapping changed on the server since you loaded it (for example a scheduled scan added folders).\n\nOverwrite it with your version? New folders will show up again on the next scan.")) return;
-      res = await api("PUT", "/api/mapping", { ...payload, force: true });
+      res = await api("PUT", "api/mapping", { ...payload, force: true });
     }
     toast(resync ? "Saved. Resync started." : "Saved.");
     setDirty(false);
@@ -655,7 +722,7 @@ $("btnScan").onclick = async () => {
   if (dirty && !confirm("You have unsaved changes. Scanning reloads the table and discards them. Continue?")) return;
   $("btnScan").disabled = true;
   try {
-    const r = await api("POST", "/api/scan");
+    const r = await api("POST", "api/scan");
     toast(r.ok ? `Scan done: ${r.new.length} new, ${r.missing.length} missing` : `Scan failed: ${r.error}`);
     await load();
   } catch (e) { alert(e.message); }
@@ -666,7 +733,7 @@ $("btnScan").onclick = async () => {
 $("btnSync").onclick = async () => {
   const msg = dirty ? "\n\nNote: you have UNSAVED changes. Resync uses the saved mapping. Use “Save & resync” to include them." : "";
   if (!confirm(`Bring every link under ${model.paths.dest} in line with the saved mapping? Missing links are made, wrong ones corrected and unused ones removed.${msg}`)) return;
-  try { await api("POST", "/api/sync"); toast("Resync started."); watchSync(); }
+  try { await api("POST", "api/sync"); toast("Resync started."); watchSync(); }
   catch (e) { alert(e.message); }
 };
 
@@ -674,7 +741,7 @@ function watchSync() {
   if (syncPoll) return;
   model.sync_running = true; renderMeta();
   syncPoll = setInterval(async () => {
-    const s = await api("GET", "/api/sync").catch(() => null);
+    const s = await api("GET", "api/sync").catch(() => null);
     if (!s || s.running) return;
     clearInterval(syncPoll); syncPoll = null;
     model.sync_running = false; model.last_sync = s.last_sync; renderMeta(); loadActivity();
@@ -692,7 +759,7 @@ async function saveSettings() {
                  auto_add_new: $("sAuto").checked,
                  sync_enabled: $("sSync").checked, sync_every: $("sSyncN").value, sync_unit: $("sSyncU").value };
   try {
-    const r = await api("PUT", "/api/settings", body);
+    const r = await api("PUT", "api/settings", body);
     if (mine !== settingsSeq) return;
     model.settings = r.settings; renderMeta(); toast("Schedule saved.");
   } catch (e) {
@@ -752,9 +819,9 @@ $("srcCancel").onclick = () => $("srcDlg").close();
 $("srcSave").onclick = async () => {
   if (dirty && !confirm("You have unsaved changes in the grid. Scanning reloads it and discards them. Continue?")) return;
   try {
-    await api("PUT", "/api/sources", { sources: srcEdit.map(x => ({ path: x.path, depth: x.depth || 1 })) });
+    await api("PUT", "api/sources", { sources: srcEdit.map(x => ({ path: x.path, depth: x.depth || 1 })) });
     $("srcDlg").close();
-    const r = await api("POST", "/api/scan");
+    const r = await api("POST", "api/scan");
     toast(r.ok ? `Scan done: ${r.new.length} new, ${r.missing.length} missing` : `Scan failed: ${r.error}`);
     await load(); loadActivity();
   } catch (e) { $("srcErr").textContent = e.message; $("srcErr").hidden = false; }
@@ -1089,12 +1156,12 @@ $("srcSave").onclick = async () => {
     try {
       for (;;) {
         await new Promise(r => setTimeout(r, 400));
-        const p = await api("GET", "/api/romm/progress");
+        const p = await api("GET", "api/romm/progress");
         showProgress(p);
         if (p.running) continue;
         if (p.error) throw new Error(p.error);
         q(".ptext", $("rProgress")).textContent = "Read finished - preparing the list…";
-        const next = await api("GET", "/api/romm");
+        const next = await api("GET", "api/romm");
         if (next.reading) {          // the list changed meanwhile: read it again
           R = { ...R, sources: next.sources, depths: next.depths }; renderSources(); showProgress(next.reading); continue;
         }
@@ -1116,12 +1183,12 @@ $("srcSave").onclick = async () => {
   async function save(path, action, shown) {
     pending[path] = shown;
     // keep showing the choice until rows that include it arrive (not while the folders are re-read)
-    try { const d = await api("PUT", "/api/romm/map", { path, action }); if (!d.reading) delete pending[path]; loadR(d); }
+    try { const d = await api("PUT", "api/romm/map", { path, action }); if (!d.reading) delete pending[path]; loadR(d); }
     catch (e) { delete pending[path]; alert(`Not saved for ${path}: ${e.message}`); render(); }
   }
   async function options(extra = {}) {
     try {
-      loadR(await api("PUT", "/api/romm/options", extra));
+      loadR(await api("PUT", "api/romm/options", extra));
     } catch (e) { alert(e.message); }
   }
   const addSource = () => {
@@ -1141,7 +1208,7 @@ $("srcSave").onclick = async () => {
   async function importCsv(file) {
     if (!file) return;
     try {
-      const res = await fetch("/api/romm/import", { method: "POST", headers: { "Content-Type": "text/csv" }, body: await file.text() });
+      const res = await fetch("api/romm/import", { method: "POST", headers: { "Content-Type": "text/csv" }, body: await file.text() });
       const d = await res.json();
       if (!res.ok) throw new Error(d.error || res.statusText);
       const r = d.imported, lines = [`${file.name}: ${r.imported} folders mapped, ${r.already} already right, ${r.empty} without a platform (left out of RomM${r.excluded ? `; ${r.excluded} named like a platform were excluded` : ""}).`];
@@ -1163,18 +1230,18 @@ $("srcSave").onclick = async () => {
   window.loadRomm = async () => {
     if (!R) $("rOut").textContent = "Loading…";
     try {
-      if (!SLUGS.length) SLUGS = (await api("GET", "/api/romm/platforms")).slugs;
-      loadR(await api("GET", "/api/romm"));
+      if (!SLUGS.length) SLUGS = (await api("GET", "api/romm/platforms")).slugs;
+      loadR(await api("GET", "api/romm"));
     } catch (e) { $("rOut").textContent = e.message; }
   };
   $("rRefresh").onclick = async () => {
-    try { loadR(await api("GET", "/api/romm?fresh=1")); } catch (e) { alert(e.message); }
+    try { loadR(await api("GET", "api/romm?fresh=1")); } catch (e) { alert(e.message); }
   };
   $("rApply").onclick = async () => {
     if (!confirm("Remove the platform links an older version made? Only those links are removed - your folders stay.")) return;
     const out = $("rApplied"); $("rApply").disabled = true;
     try {
-      const d = await api("POST", "/api/romm/links"); loadR(d);
+      const d = await api("POST", "api/romm/links"); loadR(d);
       out.textContent = d.applied.text; out.className = d.applied.errors.length ? "bad" : "hint";
     } catch (e) { out.textContent = "Could not update the links: " + e.message; out.className = "bad"; }
     out.hidden = false; $("rApply").disabled = false; loadActivity();
@@ -1195,6 +1262,11 @@ function showPane(pane) {
   document.querySelectorAll(".maintabs [data-pane]").forEach(b => {
     b.classList.toggle("on", b.dataset.pane === pane); b.setAttribute("aria-selected", String(b.dataset.pane === pane));
   });
+  document.querySelectorAll(".nav [data-pane]").forEach(a => {
+    a.classList.toggle("on", a.dataset.pane === pane);
+    if (a.dataset.pane === pane) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
+  });
+  $("paneTitle").textContent = pane === "romm" ? "RomM library" : "Frontend links";
   $("paneLinks").hidden = pane !== "links"; $("linksActions").hidden = pane !== "links";
   $("paneRomm").hidden = pane !== "romm"; $("rommActions").hidden = pane !== "romm";
   if (pane === "romm") loadRomm();
@@ -1206,6 +1278,27 @@ window.addEventListener("hashchange", () => showPane(location.hash.slice(1)));
 let startPane = location.hash.slice(1);
 if (!startPane) { try { startPane = localStorage.getItem("pane") || "links"; } catch (e) { startPane = "links"; } }
 showPane(startPane);
+
+// theme: the same switch (and saved choice) as the save sync pages
+(function () {
+  let t = null; try { t = localStorage.getItem("rs-theme"); } catch (e) {}
+  if (t) document.documentElement.dataset.theme = t;
+  $("themeBtn").onclick = () => {
+    const cur = document.documentElement.dataset.theme || (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+    const next = cur === "light" ? "dark" : "light";
+    document.documentElement.dataset.theme = next;
+    try { localStorage.setItem("rs-theme", next); } catch (e) {}
+  };
+})();
+// parts of the app: the save sync menu items only when save sync runs
+fetch("../api/features").then(r => r.ok ? r.json() : null).then(f => {
+  if (!f) return;
+  document.querySelectorAll("[data-feature]").forEach(e => e.hidden = !f[e.dataset.feature]);
+  if (!f.save_sync && f.save_sync_problem) {
+    $("syncBanner").innerHTML = `Save sync isn't running: ${esc(f.save_sync_problem)} - fix the container settings and restart it.`;
+    $("syncBanner").hidden = false;
+  }
+}).catch(() => {});
 
 load().catch(e => { $("banner").innerHTML = `<div class="banner">Failed to load: ${esc(e.message)}</div>`; });
 loadActivity();

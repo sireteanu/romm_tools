@@ -8,3 +8,10 @@ build
 .pytest_cache
 data/
 .romm_sync_data/
+.env
+config/
+Rom_Mapping*.csv
+rom-mapper-state.json
+rom-mapper-mapping.json*
+romm-mapper.json
+*.bak

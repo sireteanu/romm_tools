@@ -157,12 +157,8 @@ class Config:
         
         return dir_errors
 
-    def validate(self):
-        """Validate required configuration values.
-
-        Raises:
-            ValueError: If required configuration is missing or invalid.
-        """
+    def problems(self) -> list:
+        """What keeps save sync from running (empty list = ready)."""
         errors = []
 
         if not self.ROMM_CREDENTIALS.url:
@@ -181,15 +177,50 @@ class Config:
         # Validate platform mapping file (optional - will fallback to exact matching)
         if (self.PLATFORM_MAP_PATH is not None) and (not self.PLATFORM_MAP_PATH.exists()):
             self.PLATFORM_MAP_PATH = None  # this allows NO platform map path
-        
+        return errors
+
+    def validate(self):
+        """Validate required configuration values.
+
+        Raises:
+            ValueError: If required configuration is missing or invalid.
+        """
+        errors = self.problems()
         if errors:
             raise ValueError(f"Configuration errors: {', '.join(errors)}")
-
         return True
+
+
+def _switch(name: str, default: str) -> str:
+    return (os.getenv(name, default) or default).strip().lower()
+
+
+def save_sync_wanted() -> bool:
+    """SAVE_SYNC: true / false / auto (default). auto = on as soon as any save sync setting is given
+    (a RomM address or a sync folder), so a container set up only for ROM folders doesn't need it."""
+    v = _switch("SAVE_SYNC", "auto")
+    if v in ("true", "1", "yes", "on"):
+        return True
+    if v in ("false", "0", "no", "off"):
+        return False
+    return any(os.getenv(k) for k in ("ROMM_URL", "SAVE_SYNC_FOLDER", "STATE_SYNC_FOLDER", "ALL_SYNC_FOLDER"))
+
+
+def rom_folders_wanted() -> bool:
+    """ROM_FOLDERS: true (default) / false - the Frontend links and RomM library pages."""
+    return _switch("ROM_FOLDERS", "true") not in ("false", "0", "no", "off")
 
 
 # Global config singleton
 _config: Optional[Config] = None
+
+
+def load_config() -> Config:
+    """Create the global Config without failing on missing save sync settings (romm_tools.py checks
+    Config.problems() itself, so the ROM folders part runs even when save sync isn't set up)."""
+    global _config
+    _config = Config()
+    return _config
 
 
 def get_config() -> Config:

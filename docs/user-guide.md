@@ -1,33 +1,88 @@
-# ROM Mapper user guide
+# romm_tools user guide
 
-Step by step: set up your folders, map them for each frontend, keep the links up to date, and
-show your games in RomM. For the full reference see the [README](../README.md).
+Step by step: install romm_tools, set up save sync between your handhelds and RomM, then build
+the frontend folders of links and show your ROM folders in RomM. You can use either part on its
+own - skip the steps of the part you don't need. For the full reference see the
+[README](../README.md), [save sync](save-sync.md) and [ROM folders](rom-folders.md).
 
 - [1. Install and open it](#1-install-and-open-it)
-- [2. Choose your source folders](#2-choose-your-source-folders)
-- [3. Add frontends](#3-add-frontends)
-- [4. Map folders](#4-map-folders)
-- [5. Save and resync](#5-save-and-resync)
-- [6. Keep it up to date automatically](#6-keep-it-up-to-date-automatically)
-- [7. RomM](#7-romm)
-- [8. Troubleshooting](#8-troubleshooting)
+- **Save sync**
+  - [2. A RomM API token](#2-a-romm-api-token)
+  - [3. Your saves and states folders](#3-your-saves-and-states-folders)
+  - [4. The dashboard: what needs you](#4-the-dashboard-what-needs-you)
+  - [5. Platforms, settings and notifications](#5-platforms-settings-and-notifications)
+- **ROM folders**
+  - [6. Choose your source folders](#6-choose-your-source-folders)
+  - [7. Add frontends](#7-add-frontends)
+  - [8. Map folders](#8-map-folders)
+  - [9. Save and resync](#9-save-and-resync)
+  - [10. Keep it up to date automatically](#10-keep-it-up-to-date-automatically)
+  - [11. RomM library](#11-romm-library)
+- [12. Troubleshooting](#12-troubleshooting)
 
 ---
 
 ## 1. Install and open it
 
-Follow [Install](../README.md#install) in the README. The one thing to get right: mount **one**
-folder that contains all your ROM folders and the mapping folder, at the **same path** inside the
-container (for example `/path/to/shares:/path/to/shares`). After that you never need to change the
-container to use another folder.
+Follow [Install](../README.md#install) in the README. Two things to get right:
 
-Open `http://YOUR-SERVER:8085/`. The version you're running is next to the title; click it to see
-what changed. After an update, reload the page - a banner reminds you if a tab was left open. The page has two tabs at the top: **Frontend links** (steps 2-6) and **RomM** (step 7).
-Each has its own buttons on the right.
+- **Save sync:** mount your saves and states folders at `/syncdata/saves` and `/syncdata/states`,
+  and `/data` to a persistent app data folder (it holds the sync history that tells changes on
+  each side apart).
+- **ROM folders:** mount **one** folder that contains all your ROM folders and the mapping folder,
+  at the **same path** inside the container (for example `/path/to/shares:/path/to/shares`). After
+  that you never need to change the container to use another folder.
 
-## 2. Choose your source folders
+Open `http://YOUR-SERVER:8080/`. The menu at the top has both parts: **Dashboard**, **Saves**,
+**Platforms** and **Recycle bin** for save sync, **Frontend links** and **RomM library** for ROM
+folders, and **Logs** and **Settings**. The version you're running is next to the name; click it to
+see what changed. When only ROM folders is set up, the page opens on **Frontend links** and the save
+sync items are hidden.
 
-Click **Source folders**. Add each folder that holds ROMs, for example `/path/to/roms` and
+## 2. A RomM API token
+
+In RomM, click your profile picture → **Client API Tokens** → **Create**. Give it read access to
+ROMs and platforms and **read + write for saves/states (assets)** - nothing else is needed. Put it
+in `ROMM_API_TOKEN` (Unraid: *RomM API token*) with `ROMM_URL` set to RomM's address, and restart
+the container. The [save sync reference](save-sync.md#romm) has a picture of a token that works.
+
+## 3. Your saves and states folders
+
+Save sync expects one subfolder per system (`snes`, `gba`, `Nintendo 64`, ...) in your saves and
+states folders - RetroArch's *Sort saves/states by content directory*. If they're in one folder,
+use `ALL_SYNC_FOLDER` instead (see [Sync folders](save-sync.md#sync-folders)). The log says at
+startup how many system folders it found; an empty folder usually means the host path is wrong.
+
+## 4. The dashboard: what needs you
+
+The first sync starts as soon as the container is up. Anything that changed on only one side syncs
+by itself. **Needs your attention** lists what doesn't:
+
+- **Conflicts** - a file changed in your folder *and* on RomM. Click **Resolve…** to compare them
+  side by side and keep the folder version, the RomM version, or both.
+- **Errors** - files that failed, with the reason in plain words, **Retry** and **Dismiss**.
+- **Deletions**, **RomM → Folder**, **Folder → RomM** - only when you chose to approve those (or
+  more than 10 deletions came at once, which looks like an unmounted share).
+
+Everything that is overwritten or deleted is kept first: backups in `/data/backups`, deleted files
+in the **Recycle bin**. The **Saves** page lists every save and state on both sides, with version
+history, bulk actions and *Link to a RomM game…* for saves whose names don't match a ROM.
+
+## 5. Platforms, settings and notifications
+
+- **Platforms** shows which RomM platform each system folder of your saves matches. Most match by
+  themselves; pick one for the rest (the number on the menu item counts them), or switch a system's
+  sync off.
+- **Settings** changes how sync behaves (ask first or automatic, deletions, intervals, backups,
+  dry run, password) without restarting the container.
+- **Settings → Notifications** sends questions, failures and sync problems to Discord, ntfy,
+  Gotify, Pushbullet or a webhook. **Send test** checks it.
+- **Settings → Syncthing** (optional) waits for Syncthing to finish receiving a file before syncing
+  it, and shows your devices on the dashboard.
+
+## 6. Choose your source folders
+
+Open **Frontend links** in the menu and click **Source folders**. Add each folder that holds ROMs, for example `/path/to/roms` and
 `/path/to/downloads`. For each one, pick a **depth**:
 
 - **1** - the folders directly inside it become rows (`roms/snes`, `roms/psx`).
@@ -36,16 +91,16 @@ Click **Source folders**. Add each folder that holds ROMs, for example `/path/to
 - Higher numbers go deeper still.
 
 Click **Save & scan**. Every folder found appears in the grid as *New*, with the source folder's
-name in front so you can tell collections apart. Folders named `media` are skipped (see step 3).
+name in front so you can tell collections apart. Folders named `media` are skipped (see step 7).
 
-## 3. Add frontends
+## 7. Add frontends
 
 Click **+ Frontend** and name it - the name becomes a folder inside the mapping folder (e.g. `rgs`,
 `retrobat`, `knulli`). Tick **link media/ folders** if that frontend should also get each system's
 `media` folder; the box below sets where they go (default `MEDIA_FULL`). Remove a frontend with ✕
 next to its name.
 
-## 4. Map folders
+## 8. Map folders
 
 In each cell, type the folder name that frontend should see:
 
@@ -60,7 +115,7 @@ the second turns orange: only the first row gets that link.
 
 **+ Folder** adds a row for a folder that doesn't exist yet (type it as `<source name>/<path>`).
 
-## 5. Save and resync
+## 9. Save and resync
 
 - **Save** stores the mapping in the app.
 - **Resync all** makes the mapping folder match the saved mapping: missing links are created, wrong
@@ -71,7 +126,7 @@ the second turns orange: only the first row gets that link.
 **Last resync** shows the result; click *view output* for details (links created, corrected,
 removed, and any problems).
 
-## 6. Keep it up to date automatically
+## 10. Keep it up to date automatically
 
 In **Schedule**:
 
@@ -83,9 +138,9 @@ Pick **min**, **hours** or **days** next to each number. Scans can run every min
 most every 5 minutes. The card shows when each runs next. Turning a schedule on runs it right away
 if it's already due.
 
-## 7. RomM
+## 11. RomM library
 
-Open the **RomM** tab (or go to `http://YOUR-SERVER:8085/#romm`). Each folder you give a platform is
+Open **RomM library** in the menu (or go to `http://YOUR-SERVER:8080/roms/#romm`). Each folder you give a platform is
 mounted into RomM's container under the platform's name, by Docker - nothing is moved.
 
 1. **Download folders** - add your ROM folders. Use **2 levels** if systems have subfolders like
@@ -107,7 +162,7 @@ them (only the links ROM Mapper made).
 
 **RomM platforms list** shows every platform RomM knows, with a search box.
 
-## 8. Troubleshooting
+## 12. Troubleshooting
 
 **"Source folder not found" / "Folder not found".** The folder isn't inside the folder mounted into
 the container, or the path has a typo. Paths must be the same as on the host.
@@ -115,7 +170,17 @@ the container, or the path has a typo. Paths must be the same as on the host.
 **A link isn't created.** Check the resync output: the folder may be *Missing*, the name may be
 used twice for that frontend, or a real file or folder may already be in the way.
 
-**Permission denied.** The container's user (Unraid: `nobody`) needs write access to the mapping
-folder and the config folder.
+**Permission denied.** The container needs write access to the mapping folder and the app data
+folder. Set `PUID` / `PGID` (Unraid: 99 / 100) so links and folders it makes belong to your share's
+user.
 
-**Something else?** The **Activity** card and the container log show what happened.
+**Save sync isn't running.** A banner on the ROM folders page (and the log) says which setting is
+missing - usually `ROMM_URL`, `ROMM_API_TOKEN` or a sync folder. Fix it and restart the container.
+To use only ROM folders, set `SAVE_SYNC=false`.
+
+**RomM unreachable / token rejected.** The dashboard says so, failing syncs are retried, and the
+container turns *unhealthy* after 15 minutes. Check `ROMM_URL` from inside the container (a
+container name only works on the same Docker network) and the token's permissions.
+
+**Something else?** **Logs** shows the whole log - save sync and ROM folders - with a filter and a
+download button; the **Activity** card on Frontend links shows that part's recent events.

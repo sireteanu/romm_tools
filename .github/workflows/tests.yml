@@ -1,5 +1,5 @@
-# Runs the test suite and the linter on every push and pull request (everything runs on temporary
-# folders - no server or real library involved).
+# Runs the linter and the whole test suite (save sync and ROM folders) on every push and pull request.
+# Everything runs on temporary folders and a mock RomM - no server or real library involved.
 name: Tests
 on:
   push:
@@ -12,12 +12,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ["3.10", "3.12"]
+        python: ["3.10", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
       - run: pip install -r requirements.txt -r requirements-dev.txt
-      - run: python -m pyflakes app tests
-      - run: python -m pytest
+      - run: python -m pyflakes romm_tools.py src tests
+      - run: python -m pytest -q tests

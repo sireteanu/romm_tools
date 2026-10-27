@@ -1,15 +1,20 @@
 name: Release
 
-# Every push to the default branch (main or public) becomes a new release:
+# Every push to main becomes a new release (the owner wants every change released):
 #   1. run the tests
-#   2. pick the version: VERSION file if that tag doesn't exist yet, otherwise bump the patch of the latest tag
-#   3. create the git tag + GitHub release (auto-generated notes)
+#   2. pick the version: VERSION if that tag doesn't exist yet, otherwise the next patch after the
+#      latest tag of that major.minor (1.0.0 -> 1.0.1 -> ...). Raise VERSION for a new minor/major.
+#   3. create the git tag + GitHub release. Its text is that version's "## [x.y.z]" section of
+#      CHANGELOG.md; without one, GitHub writes notes from the commits.
 #   4. build and push the Docker image to ghcr.io/<owner>/<repo>:{version, major.minor, latest}
+#      (amd64 + arm64)
+#   5. bring the text of earlier releases back in line with their CHANGELOG.md section when a
+#      section was corrected later.
 # Put "[skip release]" in a commit message to push without releasing.
 
 on:
   push:
-    branches: [main, public]   # this fork's default branch is "public" (inherited from upstream)
+    branches: [main]
   workflow_dispatch:
 
 concurrency:
@@ -34,7 +39,7 @@ jobs:
 
       - name: Test
         run: |
-          pip install -r requirements.txt
+          pip install -r requirements.txt -r requirements-dev.txt
           python -m pytest -q tests
 
       - name: Work out version
@@ -58,11 +63,21 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           v="v${{ steps.version.outputs.version }}"
+          python3 - "${{ steps.version.outputs.version }}" > notes.md <<'PY'
+          import re, sys
+          text = open("CHANGELOG.md", encoding="utf-8").read()
+          m = re.search(r"^## \[" + re.escape(sys.argv[1]) + r"\][^\n]*\n(.*?)(?=^## \[|\Z)", text, re.M | re.S)
+          print(m.group(1).strip() if m else "")
+          PY
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git tag -a "$v" -m "Release $v"
           git push origin "$v"
-          gh release create "$v" --generate-notes --title "$v" --verify-tag
+          if [ -s notes.md ]; then
+            gh release create "$v" --title "romm_tools ${v#v}" --notes-file notes.md --verify-tag
+          else
+            gh release create "$v" --title "romm_tools ${v#v}" --generate-notes --verify-tag
+          fi
 
       - name: Lowercase image name
         id: image
@@ -93,3 +108,22 @@ jobs:
           labels: |
             org.opencontainers.image.version=${{ steps.version.outputs.version }}
             org.opencontainers.image.revision=${{ github.sha }}
+
+      - name: Keep released notes in line with corrected CHANGELOG.md sections
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 - <<'PY' > sections.txt
+          import re
+          text = open("CHANGELOG.md", encoding="utf-8").read()
+          for m in re.finditer(r"^## \[(\d+\.\d+\.\d+)\][^\n]*\n(.*?)(?=^## \[|\Z)", text, re.M | re.S):
+              open(f"notes-{m.group(1)}.md", "w", encoding="utf-8").write(m.group(2).strip() + "\n")
+              print(m.group(1))
+          PY
+          for v in $(cat sections.txt); do
+            gh release view "v$v" --json body --jq .body > current.md 2>/dev/null || continue
+            if ! diff -q <(sed -e 's/[[:space:]]*$//' current.md) <(sed -e 's/[[:space:]]*$//' "notes-$v.md") >/dev/null; then
+              gh release edit "v$v" --notes-file "notes-$v.md"
+              echo "v$v: release text updated from CHANGELOG.md"
+            fi
+          done

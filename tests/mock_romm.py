@@ -1,6 +1,6 @@
 """A tiny in-memory stand-in for the RomM 5.4 API, for local development, tests and README screenshots.
 
-Implements only what romm_sync uses:
+Implements only what romm_tools (save sync) uses:
   GET  /api/heartbeat
   GET  /api/roms                         (paginated: items/limit/offset)
   GET  /api/saves  | /api/states         (optionally ?rom_id=)

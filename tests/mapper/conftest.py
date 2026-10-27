@@ -1,4 +1,4 @@
-"""Test helpers: a fake /mnt/user with source folders, a mapping folder and a config folder, and a
+"""Test helpers for the ROM folders part (src/mapper): a fake /mnt/user with source folders, a mapping folder and a config folder, and a
 fresh copy of the app configured for it (the app reads its settings from the environment when it
 is imported)."""
 import importlib
@@ -7,8 +7,8 @@ import sys
 
 import pytest
 
-APP = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "app")
-sys.path.insert(0, APP)
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, ROOT)
 
 
 def make_dirs(base, *paths, files=1):
@@ -49,9 +49,9 @@ class Env:
         """Import the app with this installation's settings -> (server module, test client)."""
         for k, v in {**self.env, **env}.items():
             self.monkeypatch.setenv(k, v)
-        for mod in ("server", "romm", "links", "version"):
+        for mod in ("src.mapper.server", "src.mapper.romm", "src.mapper.links"):
             sys.modules.pop(mod, None)
-        server = importlib.import_module("server")
+        server = importlib.import_module("src.mapper.server")
         server.ROMM_BACKGROUND = False      # answer with the RomM data straight away (see test_romm)
         return server, server.app.test_client()
 

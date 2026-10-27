@@ -1,0 +1,36 @@
+# romm_tools for Unraid's Compose Manager (the template in unraid/romm-tools.xml is the other way).
+# Docker > Compose > Add New Stack "romm-tools" > Edit Stack > Compose File: paste this, set the
+# paths and RomM settings, then Compose Up. Every "Compose Up" pulls the latest image.
+services:
+  romm-tools:
+    image: ghcr.io/sireteanu/romm_tools:latest
+    pull_policy: always
+    container_name: romm-tools
+    ports:
+      - "8080:8080"
+    environment:
+      - TZ=America/New_York
+      - PUID=99                     # nobody:users, the owner of files on Unraid shares
+      - PGID=100
+      # --- Save sync (or SAVE_SYNC=false and drop the /syncdata volumes) ---
+      - ROMM_URL=http://192.168.1.10:8080
+      - ROMM_AUTH_TYPE=api
+      - ROMM_API_TOKEN=change-me
+      - SAVE_SYNC_FOLDER=/syncdata/saves
+      - STATE_SYNC_FOLDER=/syncdata/states
+      - SYNC_MODE=watch
+      # --- ROM folders (or ROM_FOLDERS=false and drop the /path/to/shares volume) ---
+      - SRC_BASE=/path/to/shares/roms        # first source folder (change the list in the page)
+      - DEST_PATH=/path/to/shares/mapping    # where the frontend folders of links are made
+      # - ROMM_SOURCE=/path/to/shares/roms   # the folder RomM reads ROMs from - or set it in the page
+    volumes:
+      - /path/to/appdata/romm-tools:/data
+      - /path/to/shares/syncthing/saves:/syncdata/saves
+      - /path/to/shares/syncthing/states:/syncdata/states
+      # The folder containing your ROM folders and the mapping folder, at the SAME path inside the
+      # container (links are absolute). Folders are then picked in the page.
+      - /path/to/shares:/path/to/shares
+    labels:
+      net.unraid.docker.webui: "http://[IP]:[PORT:8080]/"
+      net.unraid.docker.icon: "https://raw.githubusercontent.com/sireteanu/romm_tools/HEAD/unraid/icon.png"
+    restart: unless-stopped

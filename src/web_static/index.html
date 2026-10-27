@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>romm_sync</title>
+<title>romm_tools</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%237c5cff'/%3E%3Cpath d='M9 12a7 7 0 0 1 12-3l2-2v6h-6l2-2a4 4 0 0 0-7 2zM23 20a7 7 0 0 1-12 3l-2 2v-6h6l-2 2a4 4 0 0 0 7-2z' fill='white'/%3E%3C/svg%3E">
 <style>
 :root{
@@ -289,6 +289,8 @@ select option,select optgroup{background:var(--panel);color:var(--text)}
 .nav a:hover{color:var(--text)}
 .nav a.on{background:var(--text);color:var(--bg)}
 .nav a .n{font-size:11px;background:var(--bad-bg);color:var(--bad);border-radius:99px;padding:0 6px}
+.nav .sep{width:1px;height:18px;background:var(--line-strong);margin:0 4px;flex:none}
+@media (max-width:1480px){ .nav a{padding:0 11px} #mode-pill{display:none} }
 .pf-head{padding:18px 20px;display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap}
 .pf-head h3{margin:0 0 4px;font-size:18px}
 .pf-head p{margin:0;color:var(--muted);max-width:720px}
@@ -343,10 +345,10 @@ html,body{overflow-x:hidden}
 <header class="top"><div class="wrap">
   <div class="brand">
     <div class="logo"><svg width="18" height="18" viewBox="0 0 32 32"><path d="M9 12a7 7 0 0 1 12-3l2-2v6h-6l2-2a4 4 0 0 0-7 2zM23 20a7 7 0 0 1-12 3l-2 2v-6h6l-2 2a4 4 0 0 0 7-2z" fill="white"/></svg></div>
-    <div>romm_sync<a class="ver" id="ver" target="_blank" rel="noopener" title="Release notes"></a> <small id="romm-url"></small></div>
+    <div>romm_tools<a class="ver" id="ver" target="_blank" rel="noopener" title="Release notes"></a> <small id="romm-url"></small></div>
     <a class="upd" id="upd" target="_blank" rel="noopener" hidden></a>
   </div>
-  <nav class="nav"><a href="#" data-view="dash" class="on">Dashboard</a><a href="#saves" data-view="sav">Saves</a><a href="#platforms" data-view="plat">Platforms <span class="n" id="nav-unmapped" hidden></span></a><a href="#recycle" data-view="bin">Recycle bin <span class="n" id="nav-bin" style="background:var(--surface-hover);color:var(--text)" hidden></span></a><a href="#logs" data-view="log">Logs</a><a href="#settings" data-view="set">Settings</a></nav>
+  <nav class="nav"><a href="#" data-view="dash" class="on">Dashboard</a><a href="#saves" data-view="sav">Saves</a><a href="#platforms" data-view="plat">Platforms <span class="n" id="nav-unmapped" hidden></span></a><a href="#recycle" data-view="bin">Recycle bin <span class="n" id="nav-bin" style="background:var(--surface-hover);color:var(--text)" hidden></span></a><span class="sep" data-feature="rom_folders" hidden></span><a href="roms/#links" data-feature="rom_folders" hidden title="Folders of links for each emulation frontend">Frontend links</a><a href="roms/#romm" data-feature="rom_folders" hidden title="Which of your ROM folders is which RomM platform">RomM library</a><span class="sep" data-feature="rom_folders" hidden></span><a href="#logs" data-view="log">Logs</a><a href="#settings" data-view="set">Settings</a></nav>
   <div class="spacer"></div>
   <span class="pill" id="conn"><span class="dot"></span><span>connecting…</span></span>
   <span class="pill" id="mode-pill" title="Sync mode"></span>
@@ -414,7 +416,7 @@ html,body{overflow-x:hidden}
   </section>
 
   <footer>
-    romm_sync GUI fork · based on <a href="https://github.com/amn-96/romm_syncthing_sync" target="_blank" rel="noopener">romm_syncthing_sync</a> by amn-96 (MIT) ·
+    <a href="https://github.com/sireteanu/romm_tools" target="_blank" rel="noopener">romm_tools</a> · save sync based on <a href="https://github.com/amn-96/romm_syncthing_sync" target="_blank" rel="noopener">romm_syncthing_sync</a> by amn-96 (MIT) ·
     talks to <a id="romm-link" href="#" target="_blank" rel="noopener">your RomM</a><span id="footer-ver"></span><br>
     <span style="opacity:.8">Styled to sit alongside RomM. Not made by, affiliated with, or endorsed by the RomM project.</span>
   </footer>
@@ -785,7 +787,7 @@ function renderStatus(d){
     ver.href = v.app === "dev" ? `https://github.com/${v.repo}` : `https://github.com/${v.repo}/releases/tag/v${v.app}`;
     const upd = $("#upd"); upd.hidden = !v.update_available;
     if (v.update_available) { upd.textContent = `Update available: v${v.latest}`; upd.href = v.latest_url || `https://github.com/${v.repo}/releases/latest`; upd.title = "Update the container to get it (Unraid: Docker tab → force update)"; }
-    document.querySelectorAll("#footer-ver").forEach(e => e.textContent = ` · romm_sync v${v.app}` + (v.romm ? ` · RomM ${v.romm}` : ""));
+    document.querySelectorAll("#footer-ver").forEach(e => e.textContent = ` · romm_tools v${v.app}` + (v.romm ? ` · RomM ${v.romm}` : ""));
   }
   const nb = $("#nav-bin"); nb.hidden = !d.recycle_count; nb.textContent = d.recycle_count || "";
   const btn = $("#sync-btn"); btn.disabled = busy; btn.textContent = busy ? "⟳ Syncing…" : "⟳ Sync now";
@@ -1446,6 +1448,10 @@ $("#status-filter").querySelectorAll("button").forEach(b => b.onclick = () => {
   state.filter = b.dataset.f; state.lastHash.games = null; render();
 });
 setInterval(()=>{ if(state.data) renderStatus(state.data); }, 15000); // keep "x min ago" fresh
+// ---------- parts of the app (save sync / ROM folders) ----------
+api("api/features").then(f => {
+  document.querySelectorAll("[data-feature]").forEach(e => e.hidden = !f[e.dataset.feature]);
+}).catch(()=>{});
 route();
 poll();
 // unmapped-folder badge on the nav even while on the dashboard

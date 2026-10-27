@@ -37,7 +37,7 @@ def _dt(v) -> datetime:
 
 def inventory() -> List[dict]:
     """All saves/states: one row per file name per game, showing where it exists."""
-    from .sync_engine import SyncEngine, file_key, md5_file  # noqa: F401
+    from .sync_engine import SyncEngine, file_key  # noqa: F401
     from .library_classes import LibraryScanner
     orch = STATE.orchestrator
     if orch is None or orch.lcl is None:
@@ -279,7 +279,6 @@ def _delete(eng, r: dict):
 
 def _prune(eng, r: dict):
     """Keep the newest RomM version, move the older ones to the recycle bin."""
-    from . import recycle
     rf = r["_rf"]
     if rf is None or len(r["_group"]) < 2:
         return True, "Only one version on RomM"

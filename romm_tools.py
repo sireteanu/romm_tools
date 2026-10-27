@@ -1,6 +1,9 @@
-# romm_sync — sync emulator saves/states between a Syncthing folder and RomM.
-# Original project: https://github.com/amn-96/romm_syncthing_sync (c) amn-96, MIT License.
-# This fork adds a web GUI and two-way sync with approvals/conflict handling.
+# romm_tools — RomM companion tools in one container:
+#   * save sync: emulator saves/states between a Syncthing folder and RomM, both ways
+#     (from sireteanu/romm_syncthing_sync, a fork of https://github.com/amn-96/romm_syncthing_sync
+#     (c) amn-96, MIT License, which added a web GUI and two-way sync)
+#   * ROM folders: frontend folders of links and RomM library mapping (from sireteanu/rom-mapper)
+# One web page on one port; either part can be switched off (SAVE_SYNC, ROM_FOLDERS).
 
 # external library imports
 from watchdog.observers import Observer
@@ -13,7 +16,7 @@ from dotenv import load_dotenv
 # logging special import
 from loguru import logger
 # internal imports
-from src.config import get_config
+from src.config import load_config, rom_folders_wanted, save_sync_wanted
 from src.sync_state import STATE, install_log_sink
 from src.sync_orchestrator import (SyncOrchestrator, WatchdogSyncManager, PeriodicSyncManager,
                                    FileChangeHandler, RommPoller)
@@ -22,21 +25,50 @@ from src.sync_orchestrator import (SyncOrchestrator, WatchdogSyncManager, Period
 load_dotenv()
 
 
-def initialize_romm_sync():
+def start_app():
+    """Read the configuration, decide which parts run, start ROM folders and the web page.
+    -> (app_cfg, run save sync?)"""
     # Get the app's configuration from docker env variables. See .env.example
-    app_cfg = get_config()
+    app_cfg = load_config()
     install_log_sink()
     from src import settings as dashboard_settings
     dashboard_settings.apply_to_config(app_cfg)  # values saved on the Settings page override the container
-    from src import notify
-    notify.seed_from_state()
     from src.version import get_version
-    logger.info(f"romm_sync v{get_version()} — https://github.com/sireteanu/romm_syncthing_sync")
-    STATE.sync_mode = app_cfg.SYNC_MODE
+    logger.info(f"romm_tools v{get_version()} — https://github.com/sireteanu/romm_tools")
+
+    save_sync = save_sync_wanted()
+    problems = app_cfg.problems() if save_sync else []
+    for p in problems:
+        logger.error(f"Save sync: {p}")
+    if problems:
+        logger.error("Save sync is not running until its settings are fixed (see the README). ROM folders keep working.")
+    elif not save_sync:
+        logger.info("Save sync is off (SAVE_SYNC=false, or no RomM address or sync folder is set).")
+    app_cfg.FEATURES = {"save_sync": save_sync and not problems, "rom_folders": rom_folders_wanted(),
+                        "save_sync_problem": "; ".join(problems) or None}
+
+    if app_cfg.FEATURES["rom_folders"]:
+        from src.mapper import server as rom_folders
+        rom_folders.start_background()
+        if not app_cfg.FEATURES["save_sync"]:
+            # The RomM platform picker also offers platforms newer than its built-in list, from the
+            # same cached catalog save sync uses (refreshed weekly; save sync refreshes it otherwise).
+            from src import platforms as platform_catalog
+            threading.Thread(target=platform_catalog.ensure_catalog, name="platform-catalog", daemon=True).start()
+    else:
+        logger.info("ROM folders are off (ROM_FOLDERS=false).")
 
     if app_cfg.WEB_UI:
         from src.web import start_web_server
         start_web_server(app_cfg)
+    return app_cfg, app_cfg.FEATURES["save_sync"]
+
+
+def initialize_romm_sync(app_cfg):
+    """Save sync startup: platform list, sync folders, RomM connection and the first sync."""
+    from src import notify
+    notify.seed_from_state()
+    STATE.sync_mode = app_cfg.SYNC_MODE
 
     # RomM's platform list + folder aliases (from GitHub, cached in /data). In the background so a
     # server without internet access never delays startup.
@@ -169,11 +201,28 @@ def run_watch_sync(srv, lcl, app_cfg):
         logger.info("Exiting ('Watch' sync mode)...")
 
 
+def wait_forever():
+    """Only the web page (and ROM folders) run: keep the process alive until it's stopped."""
+    stop = threading.Event()
+    AppExit(lambda signum, frame: stop.set())
+    stop.wait()
+    logger.info("Exiting...")
+
+
 def main():
     """Main orchestration function."""
-    app_cfg, srv, lcl = initialize_romm_sync()
+    if "--resync" in sys.argv[1:]:   # ROM folders: one-off resync without the web page (docker exec ...)
+        from src.mapper import server as rom_folders
+        sys.exit(rom_folders.resync_cli())
 
-    logger.info("Romm_sync starting!")
+    app_cfg, save_sync = start_app()
+    if not save_sync:
+        wait_forever()
+        return
+
+    app_cfg, srv, lcl = initialize_romm_sync(app_cfg)
+
+    logger.info("Save sync starting!")
 
     if app_cfg.SYNC_MODE == "periodic":
         run_periodic_sync(srv, lcl)

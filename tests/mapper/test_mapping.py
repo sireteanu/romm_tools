@@ -203,16 +203,7 @@ def test_command_line_resync(env, capsys):
     make_dirs(env.roms, "snes")
     server, c = env.start()
     save(c, {"roms/snes": ["snes"]}, frontends=[fe("rgs")])
-    import sys
-    old = sys.argv
-    sys.argv = ["server.py", "--resync"]
-    try:
-        try:
-            server.main()
-        except SystemExit as e:
-            assert e.code == 0
-    finally:
-        sys.argv = old
+    assert server.resync_cli() == 0          # `python romm_tools.py --resync`
     assert env.link("rgs", "snes") and "1 links created" in capsys.readouterr().out
 
 

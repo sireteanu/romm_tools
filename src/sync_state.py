@@ -427,7 +427,7 @@ def log_dir() -> Path:
 
 
 def log_file() -> Path:
-    return log_dir() / "romm_sync.log"
+    return log_dir() / "romm_tools.log"
 
 
 def install_log_sink():

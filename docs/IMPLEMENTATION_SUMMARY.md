@@ -1,3 +1,8 @@
+> **Historical write-up by amn-96** for the original romm_sync, kept as written. In romm_tools the
+> entry point `romm_sync.py` is now [`romm_tools.py`](../romm_tools.py) (it also starts the ROM
+> folders part and the shared web page), and the two-way sync added later is described in
+> [TWO_WAY_SYNC.md](TWO_WAY_SYNC.md). Line numbers below refer to the original file.
+
 *(This document was initially AI-generated, then proofread and corrected by me)*
 # romm_sync Architecture & Implementation Summary
 
@@ -18,7 +23,7 @@ The application runs in a Docker container with the following configuration:
 - Logging configuration
 
 **Volume Mounts** (`docker-compose.yml`):
-The container mount path is hard-coded and it is expected that the user define their host mounts via `.env.example`. See the [relevant section in the README](../README.md###sync-configuration)
+The container mount path is hard-coded and it is expected that the user define their host mounts via `.env.example`. See the [relevant section in the README](save-sync.md#sync-folders)
 - `/syncdata/saves` - Bind mount for save files (`.srm`, `.sav`, etc.)
 - `/syncdata/states` - Bind mount for state files (`.state`, `.state0`, `.state.png`, etc.)
 - `/config/platform_mapping.yaml` - Bind mount for the platform map file 
@@ -29,7 +34,7 @@ The container mount path is hard-coded and it is expected that the user define t
 
 ### Entry Point: romm_sync.py
 
-The application starts in [romm_sync.py](../romm_sync.py) and follows this initialization sequence:
+The application starts in [romm_sync.py](https://github.com/amn-96/romm_syncthing_sync/blob/1d08deb/romm_sync.py) and follows this initialization sequence:
 
 1. **Load environment variables** - Uses `dotenv` to load `.env` configuration
 2. **Initialize sync system** - Calls `initialize_romm_sync()`
@@ -128,7 +133,7 @@ Loads the configuration (docker env variables), builds the initial library state
 - Passes valid events to `WatchdogSyncManager.add_event()`
 - Triggers `WatchdogSyncManager.schedule_sync()` to start/reset debounce timer
 
-**AppExit** ([romm_sync.py:28](../romm_sync.py#L28)) - Signal handler for graceful shutdown:
+**AppExit** ([romm_sync.py:28](https://github.com/amn-96/romm_syncthing_sync/blob/1d08deb/romm_sync.py#L28)) - Signal handler for graceful shutdown:
 - Factory methods for periodic and watchdog modes -- tries to gracefully shutdown on any interrupt.
 
 ## Sync Mode Comparison
@@ -217,7 +222,7 @@ The application supports syncing from multiple directory locations, implemented 
 - Internal code uses `sync_folders` / `sync_dirs` (generic, extensible)
 
 ## Key Components
-- [romm_sync.py](../romm_sync.py) - Application entrypoint, signal handling, and mode routing
+- [romm_sync.py](https://github.com/amn-96/romm_syncthing_sync/blob/1d08deb/romm_sync.py) - Application entrypoint, signal handling, and mode routing
 - [config.py](../src/config.py) - Environment configuration, validation, and logging setup
 - [library_classes.py](../src/library_classes.py) - RetroGameServer and LocalLibrary data models, filesystem scanning, platform mapping
 - [sync_orchestrator.py](../src/sync_orchestrator.py) - Sync coordination, manager classes (Periodic/Watchdog), event handling

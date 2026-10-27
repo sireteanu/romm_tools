@@ -1,12 +1,15 @@
-"""rom-mapper web UI.
+"""ROM folders (from rom-mapper): the Frontend links and RomM library pages of romm_tools.
 
 Keeps the mapping (frontends x folders) in rom-mapper-mapping.json in the config folder, scans
 the source folders for new/removed folders, and keeps the frontend links in line with it
 (links.py) on demand or on a schedule.
 
-RomM (romm.py): maps a lolroms download folder (nested, e.g. Nintendo/Super Famicom) to RomM
-platforms with relative platform links next to it plus a generated config.yml. Settings and folder
-choices live in romm-mapper.json in the config folder - the same file Rom Sync used.
+RomM (romm.py): decides which download folder is which RomM platform and generates the volume lines
+for RomM's compose file plus a config.yml. Settings and folder choices live in romm-mapper.json in
+the config folder - the same file Rom Sync used.
+
+This is a Flask app; romm_tools mounts it under /roms/ in the main (FastAPI) web server
+(src/web.py), so it shares the port, the optional password and the log with save sync.
 """
 
 import csv
@@ -23,20 +26,23 @@ from collections import deque
 from datetime import datetime, timezone
 
 from flask import Flask, jsonify, request, send_from_directory
+from loguru import logger
 
-import links
-import romm
-from version import __version__
+from . import links, romm
+from ..version import get_version
+
+__version__ = get_version()
 
 # --- CONFIGURATION (environment variables) ---
-CONFIG_DIR = os.environ.get("CONFIG_DIR", "/config")
+# The config folder is the app data folder (/data) unless CONFIG_DIR says otherwise - e.g. a
+# rom-mapper config folder kept at /config when moving over from rom-mapper.
+CONFIG_DIR = os.environ.get("CONFIG_DIR") or os.environ.get("DATA_DIR", "/data")
 MAPPING_FILE = os.environ.get("MAPPING_FILE", os.path.join(CONFIG_DIR, "rom-mapper-mapping.json"))
-SRC_BASE = os.environ.get("SRC_BASE", "/data/roms")
-DEST_PATH = os.environ.get("DEST_PATH", "/data/mapping")
+SRC_BASE = os.environ.get("SRC_BASE", "")     # "" = set the source folders in the page
+DEST_PATH = os.environ.get("DEST_PATH", "")   # "" = no frontend links until it's set
 STATE_FILE = os.environ.get(
     "STATE_FILE", os.path.join(CONFIG_DIR, "rom-mapper-state.json")
 )
-PORT = int(os.environ.get("PORT", "8085"))
 # RomM: the download folder(s) to map (e.g. Rom Sync's lolroms folder), mounted at the same path as
 # on the host; several separated by ";" (first = preferred when two give the same platform).
 # Can also be set in the UI; "" = RomM section not set up yet.
@@ -73,8 +79,9 @@ def now_iso():
 
 
 def log(msg):
+    """Recent events for the page, and the app log (the Logs page shows both parts of the app)."""
     activity.appendleft({"time": now_iso(), "msg": msg})
-    print(f"[{now_iso()}] {msg}", flush=True)
+    logger.info(f"[ROM folders] {msg}")
 
 
 # ---------------------------------------------------------------- state file
@@ -859,7 +866,14 @@ def api_romm_progress():
 @app.get("/api/romm/platforms")
 def api_romm_platforms():
     """RomM's platform list. It only changes with a new version, so the page loads it once."""
-    slugs = [{"slug": k, "name": v[0], "family": v[1], "kind": v[2]} for k, v in sorted(romm.PLATFORMS.items())]
+    known = dict(romm.PLATFORMS)
+    try:  # platforms RomM added after the built-in list, from the catalog save sync keeps (src/platforms.py)
+        from .. import platforms as catalog
+        for slug, name in (catalog.get_catalog().get("platforms") or {}).items():
+            known.setdefault(slug, (name, "", ""))
+    except Exception:  # noqa: BLE001 - the built-in list is always enough
+        pass
+    slugs = [{"slug": k, "name": v[0], "family": v[1], "kind": v[2]} for k, v in sorted(known.items())]
     return jsonify({"slugs": slugs})
 
 
@@ -1056,18 +1070,17 @@ def api_activity():
     return jsonify(list(activity))
 
 
-def main():
-    import sys
-    if "--resync" in sys.argv[1:]:          # one-off rebuild without the UI (docker exec ...)
-        result = run_sync("command line")
-        print(result["output"])
-        raise SystemExit(0 if result["ok"] else 1)
-    from waitress import serve
-
-    log(f"Starting rom-mapper {__version__} on port {PORT} (mapping={MAPPING_FILE}, src={SRC_BASE}, dest={DEST_PATH})")
-    threading.Thread(target=scheduler_loop, daemon=True).start()
-    serve(app, host="0.0.0.0", port=PORT, threads=8)
+def start_background():
+    """Start the scan/resync scheduler (romm_tools.py calls this once at startup)."""
+    log(f"ROM folders ready (config={CONFIG_DIR}, sources={SRC_BASE or 'set in the page'}, "
+        f"mapping folder={DEST_PATH or 'not set'})")
+    t = threading.Thread(target=scheduler_loop, name="rom-folders-scheduler", daemon=True)
+    t.start()
+    return t
 
 
-if __name__ == "__main__":
-    main()
+def resync_cli():
+    """One-off resync without the web page: `python romm_tools.py --resync`. -> exit code"""
+    result = run_sync("command line")
+    print(result["output"])
+    return 0 if result["ok"] else 1

@@ -356,7 +356,7 @@ def test_volume_lines_are_plain_unless_yaml_needs_quotes(env):
 
 
 def test_yaml_path():
-    from romm import yaml_path
+    from src.mapper.romm import yaml_path
     assert yaml_path("/a/Super Famicom (J)/x:/romm/library/roms/snes") == "/a/Super Famicom (J)/x:/romm/library/roms/snes"
     for s in ("/a/Sega: Classics", "/a/b #1", "/a/b ", "/a/b:", "/a/\tb", "relative"):
         assert yaml_path(s) == json.dumps(s), s
