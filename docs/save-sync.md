@@ -294,7 +294,7 @@ If you set the **Dashboard address**, messages link straight to it. Use **Send t
 
 ### Syncthing integration (optional)
 
-Under Settings → Syncthing, enter your Syncthing address (e.g. `http://192.168.1.6:8384`) and API key (Syncthing → Actions → Settings → General), save, then tick the Syncthing folders that hold your saves and states. Then:
+Under Settings → Syncthing, enter your Syncthing address (e.g. `http://YOUR-SERVER:8384`) and API key (Syncthing → Actions → Settings → General), save, then tick the Syncthing folders that hold your saves and states. Then:
 - the app waits until Syncthing has finished receiving files in those folders before it syncs a change (at most 10 minutes), so a half-received save is never uploaded. You can lower *Wait after a file changes* to a few seconds;
 - the dashboard shows the devices sharing those folders, whether they're connected and how up to date they are.
 

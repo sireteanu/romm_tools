@@ -66,7 +66,7 @@ FIELDS: Dict[str, dict] = {
                 "help": "On: nothing is uploaded, downloaded or deleted. Each sync only logs what it would do "
                         "(Logs → Recent actions). Use it to check a new setting or platform mapping."},
     "SYNCTHING_URL": {"type": "str", "group": "syncthing", "label": "Syncthing address",
-                      "help": "e.g. http://192.168.1.6:8384. Leave empty to turn the Syncthing integration off."},
+                      "help": "e.g. http://YOUR-SERVER:8384. Leave empty to turn the Syncthing integration off."},
     "SYNCTHING_API_KEY": {"type": "secret", "group": "syncthing", "label": "Syncthing API key",
                           "help": "Syncthing → Actions → Settings → General → API Key."},
     "SYNCTHING_FOLDERS": {"type": "str", "group": "syncthing", "label": "Syncthing folders with your saves",

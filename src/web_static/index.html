@@ -71,14 +71,16 @@ header.top .wrap{display:flex;align-items:center;gap:14px;height:58px;padding-bo
 .dot{width:8px;height:8px;border-radius:50%;background:var(--faint)}
 .dot.ok{background:var(--ok)} .dot.busy{background:var(--info);animation:pulse 1.2s infinite} .dot.bad{background:var(--bad)} .dot.warn{background:var(--warn)}
 @keyframes pulse{50%{opacity:.35}}
-.btn{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line-strong);background:var(--surface);padding:8px 14px;border-radius:var(--r-md);cursor:pointer;font-weight:600;white-space:nowrap;transition:background .15s var(--ease),border-color .15s var(--ease)}
-.btn:hover{background:var(--surface-hover)}
+/* buttons: RomM's RBtn (flat): surface fill, medium weight, a currentColor overlay on hover */
+.btn{display:inline-flex;align-items:center;gap:7px;border:1px solid transparent;background-color:var(--surface);padding:8px 14px;border-radius:var(--r-md);cursor:pointer;font-weight:500;white-space:nowrap;transition:background-color .15s var(--ease),border-color .15s var(--ease),color .15s var(--ease)}
+.btn:hover:not(:disabled){background-image:linear-gradient(color-mix(in srgb,currentColor 10%,transparent),color-mix(in srgb,currentColor 10%,transparent))}
+.btn:active:not(:disabled){background-image:linear-gradient(color-mix(in srgb,currentColor 18%,transparent),color-mix(in srgb,currentColor 18%,transparent))}
 a.btn{text-decoration:none;color:var(--text)}
-.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
-.btn.primary:hover{background:var(--accent-hover);border-color:var(--accent-hover)}
-.btn.danger{color:var(--bad)} .btn.ok{color:var(--ok)}
+.btn.primary{background-color:var(--accent-solid);color:#fff}
+.btn.primary:hover:not(:disabled){background-image:linear-gradient(rgba(0,0,0,.12),rgba(0,0,0,.12))}
+.btn.danger{color:var(--bad);background-color:color-mix(in srgb,var(--bad) 16%,transparent)} .btn.ok{color:var(--ok)}
 .btn.small{padding:4px 10px;font-size:12.5px;border-radius:8px}
-.btn:disabled{opacity:.5;cursor:default}
+.btn:disabled{opacity:.55;cursor:not-allowed}
 .iconbtn{border:0;background:transparent;cursor:pointer;color:var(--muted);padding:6px;border-radius:8px}
 .iconbtn:hover{background:var(--surface-2);color:var(--text)}
 
@@ -249,7 +251,7 @@ tr.off .pf-folder,tr.off .pf-target{opacity:.55}
 .sv-table tr.g td{background:var(--surface-2);padding-top:10px;padding-bottom:10px}
 .sv-table tr.g .gn{font-weight:600;font-size:13px}
 .sv-table tr.f:hover td{background:var(--surface-2)}
-.sv-table input[type=checkbox]{accent-color:var(--accent);width:15px;height:15px;cursor:pointer}
+
 .sv-table .side{white-space:nowrap;color:var(--muted)}
 .sv-table .side b{color:var(--text);font-weight:500}
 .sv-table .none{color:var(--faint)}
@@ -269,8 +271,8 @@ tr.off .pf-folder,tr.off .pf-target{opacity:.55}
 .src{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;padding:1px 7px;border-radius:var(--r-chip);background:var(--surface-2);color:var(--muted)}
 .src.dash{background:var(--accent-bg);color:var(--accent)}
 .linkbtn{border:0;background:none;color:var(--accent);cursor:pointer;font-size:12px;padding:0}
-.inp{background:var(--surface-2);border:1px solid var(--line-strong);color:var(--text);border-radius:8px;padding:7px 10px;font:inherit;font-size:13px;width:100%}
-.inp:focus{outline:2px solid var(--accent);outline-offset:-1px}
+.inp{background-color:var(--surface-2);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:7px 10px;font:inherit;font-size:13px;width:100%}
+
 .inp.num{width:120px}
 /* Windows draws the dropdown list with a white background; give options solid theme colours */
 select option,select optgroup{background:var(--panel);color:var(--text)}
@@ -279,7 +281,7 @@ select option,select optgroup{background:var(--panel);color:var(--text)}
 .chan .inp{background:var(--surface)}
 .chan .row + .row{margin-top:8px}
 .chk{display:flex;gap:8px;align-items:flex-start;padding:5px 0;cursor:pointer}
-.chk input{margin-top:3px;accent-color:var(--accent)}
+.chk input{margin-top:1px}
 .kvlist{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:13px}
 .kvlist dt{color:var(--muted)} .kvlist dd{margin:0;font-family:var(--mono);font-size:12.5px;word-break:break-all}
 @media (max-width:860px){ .set-grid{grid-template-columns:1fr} }
@@ -339,6 +341,59 @@ select option,select optgroup{background:var(--panel);color:var(--text)}
   .toolbar{flex-direction:column;align-items:stretch}
 }
 html,body{overflow-x:hidden}
+/* === RomM components (shared) ===
+   Form controls that look like RomM's own (RCheckbox, RTextField, RSelect in its frontend/src/lib):
+   same sizes, colours and effects, written anew - no RomM code. Keep this block identical in src/web_static/index.html and
+   src/mapper/static/index.html - tests/test_romm_tools.py checks it. */
+:root { --accent-solid: light-dark(#553e98, #7459e3); --spring: cubic-bezier(.34, 1.56, .64, 1); }
+input[type=checkbox]:not(.sw input) {
+  appearance: none; -webkit-appearance: none; flex-shrink: 0; width: 18px; height: 18px; margin: 0;
+  display: inline-grid; place-content: center; vertical-align: middle; cursor: pointer;
+  border: 1.5px solid var(--line-strong); border-radius: 4px; background: transparent; color: var(--text);
+  transition: background-color .15s var(--ease), border-color .15s var(--ease), box-shadow .22s var(--ease), transform .24s var(--spring);
+}
+input[type=checkbox]:not(.sw input)::after {
+  content: ""; width: 12px; height: 12px; background: #fff; transform: scale(.6); opacity: 0;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center / contain no-repeat;
+          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center / contain no-repeat;
+  transition: transform .24s var(--spring), opacity .15s var(--ease);
+}
+input[type=checkbox]:not(.sw input):indeterminate::after {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3.2' stroke-linecap='round'%3E%3Cpath d='M6 12h12'/%3E%3C/svg%3E");
+          mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3.2' stroke-linecap='round'%3E%3Cpath d='M6 12h12'/%3E%3C/svg%3E");
+}
+input[type=checkbox]:not(.sw input):hover:not(:disabled) {
+  border-color: var(--muted); background-color: var(--surface-hover);
+  box-shadow: 0 0 0 4px color-mix(in srgb, currentColor 10%, transparent);
+}
+input[type=checkbox]:not(.sw input):active:not(:disabled) { transform: scale(.88); transition: transform .11s var(--ease); }
+input[type=checkbox]:not(.sw input):is(:checked, :indeterminate) {
+  background-color: var(--accent-solid); border-color: var(--accent-solid);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.18), 0 0 12px color-mix(in srgb, var(--accent-solid) 32%, transparent);
+}
+input[type=checkbox]:not(.sw input):is(:checked, :indeterminate):hover:not(:disabled) {
+  background-color: color-mix(in srgb, var(--accent-solid) 88%, white); border-color: color-mix(in srgb, var(--accent-solid) 88%, white);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.22), 0 0 16px color-mix(in srgb, var(--accent-solid) 40%, transparent);
+}
+input[type=checkbox]:not(.sw input):is(:checked, :indeterminate)::after { transform: scale(1); opacity: 1; }
+input[type=checkbox]:not(.sw input):disabled { opacity: .5; cursor: not-allowed; }
+input[type=checkbox]:not(.sw input):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+:is(input[type=text], input[type=number], input[type=search], input[type=password], input[type=url], input:not([type]), select, textarea):not(.search input) {
+  transition: background-color .22s var(--ease), border-color .22s var(--ease), box-shadow .22s var(--spring);
+}
+:is(input[type=text], input[type=number], input[type=search], input[type=password], input[type=url], input:not([type]), select, textarea):not(.search input):hover:not(:disabled):not(:focus) {
+  border-color: var(--line-strong); box-shadow: 0 0 0 2px color-mix(in srgb, var(--text) 6%, transparent);
+}
+:is(input[type=text], input[type=number], input[type=search], input[type=password], input[type=url], input:not([type]), select, textarea):not(.search input):focus {
+  outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+select, select.inp {
+  appearance: none; -webkit-appearance: none; cursor: pointer; padding-right: 28px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238a8a9a' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 9px center; background-size: 13px;
+}
+select option, select optgroup { background: var(--panel); color: var(--text); }
+/* === end RomM components === */
 </style>
 </head>
 <body>
@@ -1119,7 +1174,7 @@ function renderNotify(){
       ${chk("errors","Errors","A file failed to upload or download")}
       ${chk("problems","Sync problems","RomM unreachable, token rejected, sync failed (and when it recovers)")}
       ${chk("activity","Sync activity","Every sync that uploaded or downloaded files")}</div>
-    <div class="field"><div class="lbl">Dashboard address <span class="src">optional</span></div><input class="inp" id="dash-url" placeholder="http://192.168.1.6:8080" value="${esc(n.dashboard_url||"")}"><div class="hlp">Messages link here so you can tap through to resolve things.</div></div>
+    <div class="field"><div class="lbl">Dashboard address <span class="src">optional</span></div><input class="inp" id="dash-url" placeholder="http://YOUR-SERVER:8080" value="${esc(n.dashboard_url||"")}"><div class="hlp">Messages link here so you can tap through to resolve things.</div></div>
     <div class="row" style="justify-content:flex-end;margin-top:8px"><button class="btn" id="test-notify" ${n.channels.length?"":"disabled"}>Send test</button><button class="btn primary" id="save-notify" ${sv.notifDirty?"":"disabled"}>Save notifications</button></div>`;
   const dirty = () => { sv.notifDirty = true; $("#save-notify").disabled = false; $("#test-notify").title = "Save first, then test"; };
   $("#add-chan").onclick = () => { const t=$("#add-type").value; const c={type:t}; types[t].fields.forEach(f=>c[f.name]=""); n.channels.push(c); sv.notifDirty=true; renderNotify(); };

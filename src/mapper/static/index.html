@@ -81,14 +81,21 @@
   .subhead h1 { font-size: 20px; margin: 0; }
   .paths { color: var(--muted); font-size: 12px; padding: 0 20px; }
   .paths code { background: var(--panel); border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; }
-  button { font: inherit; border: 1px solid var(--border); background: var(--panel); color: var(--text);
-           border-radius: 6px; padding: 6px 12px; cursor: pointer; white-space: nowrap; }
-  button:hover:not(:disabled) { background: var(--hover); }
-  button:disabled { opacity: .5; cursor: default; }
-  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
-  button.primary:hover:not(:disabled) { filter: brightness(1.1); background: var(--accent); }
-  button.danger { color: var(--danger); }
-  button.icon { padding: 2px 7px; border-color: transparent; background: transparent; color: var(--muted); }
+  /* buttons: RomM's RBtn (flat, small = 32px): surface fill, medium weight, a currentColor overlay on hover */
+  button { font: inherit; font-size: 13px; font-weight: 500; line-height: 18px; border: 1px solid transparent;
+           background-color: var(--surface); color: var(--text); border-radius: var(--r-md); padding: 6px 12px;
+           cursor: pointer; white-space: nowrap;
+           transition: background-color .15s var(--ease), color .15s var(--ease), border-color .15s var(--ease); }
+  button:hover:not(:disabled) { background-image: linear-gradient(color-mix(in srgb, currentColor 10%, transparent), color-mix(in srgb, currentColor 10%, transparent)); }
+  button:active:not(:disabled) { background-image: linear-gradient(color-mix(in srgb, currentColor 18%, transparent), color-mix(in srgb, currentColor 18%, transparent)); }
+  button:focus:not(:focus-visible) { outline: none; }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  button:disabled { opacity: .55; cursor: not-allowed; }
+  button.primary { background-color: var(--accent-solid); color: #fff; }
+  button.primary:hover:not(:disabled) { background-image: linear-gradient(rgba(0,0,0,.12), rgba(0,0,0,.12)); }
+  button.primary:disabled { background-color: var(--surface); color: var(--text); }
+  button.danger { color: var(--danger); background-color: color-mix(in srgb, var(--danger) 16%, transparent); }
+  button.icon { padding: 2px 7px; background: transparent; color: var(--muted); }
   button.icon:hover { color: var(--danger); }
   .actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
   .dirty { color: var(--warn); font-weight: 600; font-size: 13px; }
@@ -102,25 +109,32 @@
   .ok { color: var(--ok); } .bad { color: var(--danger); } .warn { color: var(--warn); }
   .settings { display: grid; grid-template-columns: auto 1fr; gap: 2px 6px; align-items: center; font-size: 13px; }
   .settings input { margin: 0; }
-  .settings input[type=number] { width: 46px; padding: 1px 4px; }
-  .settings select { font: inherit; color: var(--text); background: var(--input-bg); border: 1px solid var(--border);
-                     border-radius: 5px; padding: 1px 2px; }
-  input[type=text], input[type=number], input[type=search] {
-    font: inherit; color: var(--text); background: var(--input-bg); border: 1px solid var(--border);
-    border-radius: 5px; padding: 4px 6px; }
-  input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  .settings input[type=number] { width: 52px; padding: 2px 6px; }
+  .settings select { padding-top: 2px; padding-bottom: 2px; }
+  /* text fields and selects: RomM's RTextField / RSelect (outlined, compact) */
+  input[type=text], input[type=number], input[type=search], select, textarea {
+    font: inherit; font-size: 13px; line-height: 18px; color: var(--text); background-color: var(--surface-2);
+    border: 1px solid var(--line); border-radius: var(--r-md); padding: 6px 10px; }
   .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 4px 20px 10px; }
   .toolbar input[type=search] { min-width: 220px; flex: 0 1 300px; }
-  .chip { border-radius: 999px; padding: 4px 10px; font-size: 13px; }
-  .chip.active { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+  .chip { border-radius: var(--r-pill); padding: 6px 12px; font-size: 12.5px; border-color: var(--line); background-color: transparent; color: var(--muted); }
+  .chip:hover:not(:disabled) { color: var(--text); }
+  .chip.active { background-color: var(--accent-solid); color: #fff; border-color: transparent; }
   .spacer { flex: 1; }
-  .table-wrap { margin: 0 20px 20px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+  /* tables: RomM's RTable */
+  .table-wrap { margin: 0 20px 20px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px;
                 overflow: auto; max-height: calc(100vh - 120px); }
-  table { border-collapse: separate; border-spacing: 0; width: max-content; min-width: 100%; }
-  th, td { border-bottom: 1px solid var(--border); padding: 4px 6px; text-align: left; vertical-align: middle; }
-  thead th { position: sticky; top: 0; background: var(--panel); z-index: 2; vertical-align: top; padding: 8px 6px; }
-  th.folder, td.folder { position: sticky; left: 0; background: var(--panel); z-index: 1; min-width: 240px; max-width: 320px;
-                         border-right: 1px solid var(--border); }
+  table { border-collapse: separate; border-spacing: 0; width: max-content; min-width: 100%; font-size: 13px; }
+  th, td { border-bottom: 1px solid var(--line); padding: 6px 10px; text-align: left; vertical-align: middle; }
+  tbody tr:last-child td { border-bottom: 0; }
+  tbody tr { transition: background-color .15s var(--ease); }
+  tbody tr:hover { background-color: var(--surface-2); }
+  thead th { position: sticky; top: 0; z-index: 2; vertical-align: middle; padding: 10px;
+             background: linear-gradient(var(--surface), var(--surface)), var(--bg);
+             color: color-mix(in srgb, var(--text) 83%, transparent); font-size: 10.5px; font-weight: 700;
+             letter-spacing: .07em; text-transform: uppercase; }
+  th.folder, td.folder { position: sticky; left: 0; background: var(--bg); z-index: 1; min-width: 240px; max-width: 320px;
+                         border-right: 1px solid var(--line); }
   thead th.folder { z-index: 3; }
   td.folder .name { font-family: ui-monospace, Consolas, monospace; font-size: 13px; word-break: break-all; }
   tr.new td { background: var(--new-bg); }
@@ -133,7 +147,7 @@
                  padding: 4px 6px 4px 10px; background: var(--bg); margin-bottom: 4px; }
   .srcdlg .src .lbl { font-weight: 600; min-width: 70px; }
   .srcdlg .src code { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
-  .srcdlg .src select { font: inherit; color: var(--text); background: var(--input-bg); border: 1px solid var(--border); border-radius: 5px; padding: 2px 4px; }
+  .srcdlg .src select { padding-top: 3px; padding-bottom: 3px; }
   .srcdlg .src button { padding: 2px 8px; }
   .srcdlg .add { display: flex; gap: 6px; margin-top: 8px; }
   .srcdlg .add input { flex: 1; }
@@ -143,8 +157,8 @@
   .fe-head .fe-name { font-weight: 600; flex: 1; min-width: 0; }
   .fe-head label { font-size: 12px; color: var(--muted); display: flex; gap: 4px; align-items: center; }
   .fe-head input[type=text] { width: 100%; font-size: 12px; }
-  .badge { display: inline-block; font-size: 11px; border-radius: 4px; padding: 0 5px; margin-left: 6px;
-           border: 1px solid currentColor; vertical-align: 1px; }
+  .badge { display: inline-block; font-size: 10.5px; font-weight: 500; line-height: 1; border-radius: 6px; padding: 3px 7px;
+           margin-left: 6px; border: 1px solid var(--line-strong); background: var(--surface); vertical-align: 1px; }
   .badge.new { color: var(--accent); } .badge.missing { color: var(--danger); } .badge.unmapped { color: var(--muted); }
   .empty { padding: 30px; text-align: center; color: var(--muted); }
   .banner { margin: 8px 20px 0; padding: 8px 12px; border-radius: 6px; background: var(--missing-bg);
@@ -159,13 +173,15 @@
   .log { height: 62px; overflow: auto; font-size: 12px; }
   .log div { padding: 2px 0; border-bottom: 1px dashed var(--border); overflow-wrap: anywhere; }
   .log time { color: var(--muted); margin-right: 6px; }
-  #toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: var(--text); color: var(--bg);
-           padding: 8px 14px; border-radius: 6px; opacity: 0; transition: opacity .2s; pointer-events: none; max-width: 90vw; }
-  #toast.show { opacity: 1; }
+  #toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%) translateY(20px); z-index: 60;
+           background: light-dark(rgba(245,245,250,.95), rgba(13,17,23,.92)); color: var(--text); border: 1px solid var(--line-strong);
+           box-shadow: 0 8px 24px rgba(0,0,0,.45); backdrop-filter: blur(12px); padding: 10px 16px; border-radius: 10px;
+           font-weight: 500; opacity: 0; transition: opacity .22s var(--ease), transform .22s var(--ease); pointer-events: none; max-width: 90vw; }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
   .hint { color: var(--muted); font-size: 12px; }
   /* ---------- RomM ---------- */
   .maintabs { display: flex; gap: 4px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 3px; }
-  .maintabs button { border: 0; background: transparent; color: var(--muted); font-weight: 600; padding: 6px 16px; }
+  .maintabs button { border: 0; background-color: transparent; color: var(--muted); font-weight: 600; padding: 6px 16px; }
   .maintabs button.on { background: var(--accent); color: var(--accent-text); }
   .maintabs button:hover:not(.on) { background: var(--hover); color: var(--text); }
   [hidden] { display: none !important; }
@@ -186,16 +202,13 @@
   .romm .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .romm .box { border: 1px solid var(--border); border-radius: 8px; padding: 6px 12px; margin: 8px 0; background: var(--bg); }
   .romm .check { display: flex; gap: 6px; align-items: center; font-size: 13px; margin: 4px 0; }
-  .romm select { font: inherit; color: var(--text); background: var(--input-bg); border: 1px solid var(--border);
-                 border-radius: 5px; padding: 4px 6px; }
   .romm .warnings { margin: 6px 0; padding-left: 18px; font-size: 12.5px; color: var(--warn); }
   .romm .warnings:empty { display: none; }
   .romm .grid2 { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); gap: 14px; margin-top: 6px; }
   .romm .bar { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
   .romm .bar h3 { font-size: 13.5px; margin: 0 auto 0 0; }
-  .romm .wrap { max-height: 50vh; overflow: auto; border: 1px solid var(--border); border-radius: 6px; }
+  .romm .wrap { max-height: 50vh; overflow: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); }
   .romm table { width: 100%; }
-  .romm thead th { font-size: 12px; color: var(--muted); }
   .romm td.p { max-width: 380px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
                font-family: ui-monospace, Consolas, monospace; font-size: 12.5px; }
   .romm td.n { text-align: right; color: var(--muted); }
@@ -221,7 +234,7 @@
   .romm pre { max-height: 50vh; margin: 0; }
   .romm .ref { border: 1px solid var(--accent); border-left-width: 4px; border-radius: 6px; padding: 8px; }
   .romm .ref input { width: 100%; margin-bottom: 6px; }
-  .romm .slug { border: 0; background: none; padding: 0; color: var(--accent); font: 12px ui-monospace, Consolas, monospace; }
+  .romm .slug { border: 0; background: none !important; padding: 0; color: var(--accent); font: 12px ui-monospace, Consolas, monospace; }
   .romm .slug.copied::after { content: " copied"; color: var(--ok); font-family: system-ui, sans-serif; }
   .romm tr.in-use td:nth-child(2) { font-weight: 600; }
   .romm .st-ok { color: var(--ok); } .romm .st-warn { color: var(--warn); } .romm .st-bad { color: var(--danger); }
@@ -230,8 +243,7 @@
   #paneNames { padding: 4px 20px 20px; }
   #paneNames .intro { margin-top: 0; }
   @media (max-width: 640px) { #paneNames { padding: 4px 12px 12px; } }
-  #paneNames textarea { width: 100%; min-height: 54px; font: 12.5px ui-monospace, Consolas, monospace; color: var(--text);
-    background: var(--input-bg); border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; box-sizing: border-box; }
+  #paneNames textarea { width: 100%; min-height: 54px; font: 12.5px/18px ui-monospace, Consolas, monospace; resize: vertical; }
   #paneNames .stats { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; margin: 8px 0; }
   #paneNames .stats b { font-variant-numeric: tabular-nums; }
   #paneNames .wrap { max-height: 65vh; }
@@ -242,7 +254,7 @@
   #paneNames td.nn input { width: 100%; min-width: 180px; box-sizing: border-box; }
   #paneNames td.nn input.edited { border-color: var(--accent); }
   #paneNames td.b { white-space: nowrap; text-align: right; }
-  #paneNames td.b button { padding: 2px 8px; font-size: 12.5px; }
+  #paneNames td.b button { padding: 4px 10px; font-size: 12.5px; }
   #paneNames tr.ign td { opacity: .55; }
   #paneNames .tag { font-size: 11px; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 0 6px; margin-left: 4px; font-weight: 400; }
   #paneNames details { font-size: 12.5px; margin: 4px 0 8px; }
@@ -255,7 +267,7 @@
   .romm .src code { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .romm .src .meta { color: var(--muted); font-size: 12px; white-space: nowrap; }
   .romm .src button { padding: 2px 8px; }
-  .romm .src select, .romm .srcadd select { width: auto; flex: none; padding: 1px 4px; font-size: 12px; }
+  .romm .src select, .romm .srcadd select { width: auto; flex: none; padding-top: 3px; padding-bottom: 3px; font-size: 12px; }
   @media (max-width: 640px) {
     .romm .src { flex-wrap: wrap; }
     .romm .src code { flex-basis: calc(100% - 30px); }
@@ -290,6 +302,59 @@
     .table-wrap { margin: 0 12px 12px; }
     th.folder, td.folder { min-width: 160px; }
   }
+/* === RomM components (shared) ===
+   Form controls that look like RomM's own (RCheckbox, RTextField, RSelect in its frontend/src/lib):
+   same sizes, colours and effects, written anew - no RomM code. Keep this block identical in src/web_static/index.html and
+   src/mapper/static/index.html - tests/test_romm_tools.py checks it. */
+:root { --accent-solid: light-dark(#553e98, #7459e3); --spring: cubic-bezier(.34, 1.56, .64, 1); }
+input[type=checkbox]:not(.sw input) {
+  appearance: none; -webkit-appearance: none; flex-shrink: 0; width: 18px; height: 18px; margin: 0;
+  display: inline-grid; place-content: center; vertical-align: middle; cursor: pointer;
+  border: 1.5px solid var(--line-strong); border-radius: 4px; background: transparent; color: var(--text);
+  transition: background-color .15s var(--ease), border-color .15s var(--ease), box-shadow .22s var(--ease), transform .24s var(--spring);
+}
+input[type=checkbox]:not(.sw input)::after {
+  content: ""; width: 12px; height: 12px; background: #fff; transform: scale(.6); opacity: 0;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center / contain no-repeat;
+          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center / contain no-repeat;
+  transition: transform .24s var(--spring), opacity .15s var(--ease);
+}
+input[type=checkbox]:not(.sw input):indeterminate::after {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3.2' stroke-linecap='round'%3E%3Cpath d='M6 12h12'/%3E%3C/svg%3E");
+          mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3.2' stroke-linecap='round'%3E%3Cpath d='M6 12h12'/%3E%3C/svg%3E");
+}
+input[type=checkbox]:not(.sw input):hover:not(:disabled) {
+  border-color: var(--muted); background-color: var(--surface-hover);
+  box-shadow: 0 0 0 4px color-mix(in srgb, currentColor 10%, transparent);
+}
+input[type=checkbox]:not(.sw input):active:not(:disabled) { transform: scale(.88); transition: transform .11s var(--ease); }
+input[type=checkbox]:not(.sw input):is(:checked, :indeterminate) {
+  background-color: var(--accent-solid); border-color: var(--accent-solid);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.18), 0 0 12px color-mix(in srgb, var(--accent-solid) 32%, transparent);
+}
+input[type=checkbox]:not(.sw input):is(:checked, :indeterminate):hover:not(:disabled) {
+  background-color: color-mix(in srgb, var(--accent-solid) 88%, white); border-color: color-mix(in srgb, var(--accent-solid) 88%, white);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.22), 0 0 16px color-mix(in srgb, var(--accent-solid) 40%, transparent);
+}
+input[type=checkbox]:not(.sw input):is(:checked, :indeterminate)::after { transform: scale(1); opacity: 1; }
+input[type=checkbox]:not(.sw input):disabled { opacity: .5; cursor: not-allowed; }
+input[type=checkbox]:not(.sw input):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+:is(input[type=text], input[type=number], input[type=search], input[type=password], input[type=url], input:not([type]), select, textarea):not(.search input) {
+  transition: background-color .22s var(--ease), border-color .22s var(--ease), box-shadow .22s var(--spring);
+}
+:is(input[type=text], input[type=number], input[type=search], input[type=password], input[type=url], input:not([type]), select, textarea):not(.search input):hover:not(:disabled):not(:focus) {
+  border-color: var(--line-strong); box-shadow: 0 0 0 2px color-mix(in srgb, var(--text) 6%, transparent);
+}
+:is(input[type=text], input[type=number], input[type=search], input[type=password], input[type=url], input:not([type]), select, textarea):not(.search input):focus {
+  outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+select, select.inp {
+  appearance: none; -webkit-appearance: none; cursor: pointer; padding-right: 28px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238a8a9a' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 9px center; background-size: 13px;
+}
+select option, select optgroup { background: var(--panel); color: var(--text); }
+/* === end RomM components === */
 </style>
 </head>
 <body>

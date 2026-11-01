@@ -146,3 +146,16 @@ def test_links_keep_the_running_user_when_not_root(tmp_path, monkeypatch):
     monkeypatch.setattr(os, "lchown", lambda *a: called.append(a))
     links.apply({str(tmp_path / "mapping" / "rgs" / "snes"): str(tmp_path / "roms" / "snes")}, str(tmp_path / "mapping"))
     assert called == []
+
+
+def test_both_pages_share_the_romm_components_block():
+    """The RomM form controls (checkboxes, fields, selects) are one CSS block, the same on both pages."""
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    blocks = []
+    for page in (("src", "web_static", "index.html"), ("src", "mapper", "static", "index.html")):
+        html = open(os.path.join(root, *page), encoding="utf-8").read()
+        start = html.index("/* === RomM components (shared) ===")
+        end = html.index("/* === end RomM components === */")
+        assert start < end < html.index("</style>")
+        blocks.append(html[start:end])
+    assert blocks[0] == blocks[1]

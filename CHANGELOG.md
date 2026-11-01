@@ -9,6 +9,18 @@ romm_tools continues two projects; their own changelogs are kept as they were:
 
 ## [Unreleased]
 
+## [1.0.3] - 2026-10-31
+
+### Improved
+- **Looks like RomM.** Buttons, text fields, drop-downs, checkboxes, tables and tags on every page
+  now look and behave like RomM's own: RomM's checkboxes with the purple fill, fields with RomM's
+  hover and focus glow, RomM's drop-down arrow, tables with RomM's small uppercase headers and row
+  highlight, and RomM's flat buttons. The Frontend links, RomM library and Game names pages now
+  match the save sync pages.
+
+### Changed
+- Example addresses in the settings, Unraid template and docs read `http://YOUR-SERVER:8384`.
+
 ## [1.0.2] - 2026-10-31
 
 ### New
