@@ -227,6 +227,26 @@
   .romm .st-ok { color: var(--ok); } .romm .st-warn { color: var(--warn); } .romm .st-bad { color: var(--danger); }
   .romm .st-none { color: var(--muted); }
   .romm [hidden] { display: none !important; }
+  #paneNames { padding: 4px 20px 20px; }
+  #paneNames .intro { margin-top: 0; }
+  @media (max-width: 640px) { #paneNames { padding: 4px 12px 12px; } }
+  #paneNames textarea { width: 100%; min-height: 54px; font: 12.5px ui-monospace, Consolas, monospace; color: var(--text);
+    background: var(--input-bg); border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; box-sizing: border-box; }
+  #paneNames .stats { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; margin: 8px 0; }
+  #paneNames .stats b { font-variant-numeric: tabular-nums; }
+  #paneNames .wrap { max-height: 65vh; }
+  #paneNames td { vertical-align: middle; }
+  #paneNames td.f { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: 12px; }
+  #paneNames td.rn { color: var(--muted); }
+  #paneNames td.gn { font-weight: 600; }
+  #paneNames td.nn input { width: 100%; min-width: 180px; box-sizing: border-box; }
+  #paneNames td.nn input.edited { border-color: var(--accent); }
+  #paneNames td.b { white-space: nowrap; text-align: right; }
+  #paneNames td.b button { padding: 2px 8px; font-size: 12.5px; }
+  #paneNames tr.ign td { opacity: .55; }
+  #paneNames .tag { font-size: 11px; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 0 6px; margin-left: 4px; font-weight: 400; }
+  #paneNames details { font-size: 12.5px; margin: 4px 0 8px; }
+  #paneNames details li { overflow-wrap: anywhere; }
   #rApply { align-self: start; justify-self: start; }
   .romm .sources { display: grid; gap: 4px; margin: 2px 0 4px; }
   .romm .src { display: flex; align-items: center; gap: 8px; border: 1px solid var(--border); border-radius: 6px;
@@ -279,7 +299,7 @@
     <div>romm_tools<a id="appVersion" class="ver" href="https://github.com/sireteanu/romm_tools/releases" target="_blank" rel="noopener" title="Release notes"></a></div>
   </div>
   <nav class="nav" aria-label="Sections">
-    <a href="../" data-feature="save_sync" hidden>Dashboard</a><a href="../#saves" data-feature="save_sync" hidden>Saves</a><a href="../#platforms" data-feature="save_sync" hidden>Platforms</a><a href="../#recycle" data-feature="save_sync" hidden>Recycle bin</a><span class="sep" data-feature="save_sync" hidden></span><a href="#links" data-pane="links" title="Folders of links for each emulation frontend">Frontend links</a><a href="#romm" data-pane="romm" title="Which of your ROM folders is which RomM platform">RomM library</a><span class="sep" data-feature="save_sync" hidden></span><a href="../#logs" data-feature="save_sync" hidden>Logs</a><a href="../#settings" data-feature="save_sync" hidden>Settings</a>
+    <a href="../" data-feature="save_sync" hidden>Dashboard</a><a href="../#saves" data-feature="save_sync" hidden>Saves</a><a href="../#platforms" data-feature="save_sync" hidden>Platforms</a><a href="../#recycle" data-feature="save_sync" hidden>Recycle bin</a><span class="sep" data-feature="save_sync" hidden></span><a href="#links" data-pane="links" title="Folders of links for each emulation frontend">Frontend links</a><a href="#romm" data-pane="romm" title="Which of your ROM folders is which RomM platform">RomM library</a><a href="#names" data-pane="names" title="Give RomM the game names from your frontends' gamelist.xml">Game names</a><span class="sep" data-feature="save_sync" hidden></span><a href="../#logs" data-feature="save_sync" hidden>Logs</a><a href="../#settings" data-feature="save_sync" hidden>Settings</a>
   </nav>
   <div class="spacer"></div>
   <button class="iconbtn" id="themeBtn" title="Toggle light / dark" aria-label="Toggle light / dark"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor"/></svg></button>
@@ -290,6 +310,7 @@
   <nav class="maintabs" role="tablist" aria-label="Sections" hidden>
     <button role="tab" data-pane="links" aria-selected="true" class="on" title="Folders of links for each frontend">Frontend links</button>
     <button role="tab" data-pane="romm" aria-selected="false" title="Map download folders to RomM platforms (links + config.yml)">RomM</button>
+    <button role="tab" data-pane="names" aria-selected="false" title="Game names from gamelist.xml">Game names</button>
   </nav>
   <div class="actions" id="linksActions">
     <span id="dirty" class="dirty" hidden>● Unsaved changes</span>
@@ -301,6 +322,10 @@
   <div class="actions" id="rommActions" hidden>
     <button id="rRefresh" title="Read the download folders again">Refresh</button>
     <button id="rApply" type="button" title="Remove the platform links older versions made (RomM reads your folders by name now)" hidden>Remove old platform links</button>
+  </div>
+  <div class="actions" id="namesActions" hidden>
+    <button id="nUndo" type="button" hidden>Undo last rename</button>
+    <button id="nRefresh" type="button" title="Read the gamelist.xml files and RomM again">Refresh</button>
   </div>
 </div>
 <main id="paneLinks">
@@ -428,6 +453,49 @@
   <p id="srcErr" class="bad" hidden></p>
   <div class="foot"><button id="srcCancel" type="button">Cancel</button><button id="srcSave" class="primary" type="button">Save &amp; scan</button></div>
 </dialog>
+
+<main id="paneNames" class="romm" hidden>
+  <p class="intro">RomM's name for each game next to the name in your frontend's <code>gamelist.xml</code>
+    (ES-DE, Batocera, RetroBat, Knulli). Where they differ, keep RomM's, give RomM the gamelist's name, or type
+    your own. Only the name shown in RomM changes: files on disk and the gamelists are never touched, and RomM keeps
+    the name on later scans. <b>Undo</b> puts the last batch back.</p>
+  <p id="nNoRomm" class="bad" hidden>No RomM address is set: add <code>ROMM_URL</code> and a login (or API token with
+    <code>roms.write</code>) to the container settings and restart it.</p>
+  <label class="field"><span>Extra gamelist folders</span>
+    <textarea id="nFolders" placeholder="/path/to/ES-DE/gamelists" spellcheck="false" aria-describedby="nFoldersHelp"></textarea>
+    <small id="nFoldersHelp">One folder per line. The <code>gamelist.xml</code> in every platform folder of the
+      <a href="#romm">RomM library</a> page is always read (<span id="nMapped"></span>). Add folders whose subfolders are named
+      after a RomM platform (<code>snes/gamelist.xml</code>): ES-DE's <code>gamelists</code> folder, a frontend's
+      <code>roms</code> folder, or RomM's <code>library/roms</code>. Subfolders are searched too
+      (<code>snes/Hacks/gamelist.xml</code>, paths relative to that subfolder), and folders without a gamelist are skipped.
+      Folders must be mounted into this container at the same path.</small>
+    <div><button id="nFoldersSave" type="button">Save &amp; read</button></div></label>
+  <div id="nProgress" class="progress" role="status" hidden>
+    <div class="ptext"></div>
+    <div class="pbar" role="progressbar" aria-label="Reading gamelists and RomM" aria-valuemin="0" aria-valuemax="100"><div class="pfill"></div></div>
+  </div>
+  <p id="nError" class="bad" hidden></p>
+  <div id="nStats" class="stats"></div>
+  <details id="nFiles" hidden><summary>Gamelists read</summary><ul id="nFileList"></ul></details>
+  <div class="bar">
+    <input type="search" id="nFind" placeholder="Find a game…" aria-label="Find a game">
+    <select id="nPlatform" aria-label="Platform"></select>
+    <select id="nShow" aria-label="Show">
+      <option value="diff">Different names</option>
+      <option value="case">Only upper/lower case differs</option>
+      <option value="ignored">Kept as in RomM</option>
+      <option value="all">All</option>
+    </select>
+    <span style="margin-left:auto"></span>
+    <button id="nIgnoreSel" type="button" disabled title="Keep RomM's name for the selected games (hidden until their gamelist name changes)">Keep RomM's name</button>
+    <button id="nApplySel" type="button" class="primary" disabled>Rename selected in RomM</button>
+  </div>
+  <div class="wrap"><table><thead><tr>
+    <th><input type="checkbox" id="nAll" aria-label="Select every game shown"></th>
+    <th>Platform</th><th>File</th><th>RomM name</th><th>Gamelist name</th><th>New name in RomM</th><th></th>
+  </tr></thead><tbody id="nBody"></tbody></table></div>
+  <p id="nMore" class="hint" hidden></p>
+</main>
 
 
 <div id="toast"></div>
@@ -1256,9 +1324,162 @@ $("srcSave").onclick = async () => {
   };
 })();
 
+// ------------------------------------------------------------- game names (gamelist.xml -> RomM)
+const names = { view: null, typed: {}, sel: new Set(), poll: null, loaded: false };
+const N_MAX_ROWS = 500;
+
+async function loadNames(fresh) {
+  try { showNames(await api("GET", "api/names" + (fresh ? "?fresh=1" : ""))); }
+  catch (e) { $("nError").textContent = "Couldn't load: " + e.message; $("nError").hidden = false; }
+}
+
+function showNames(v) {
+  names.view = v;
+  $("nNoRomm").hidden = v.romm;
+  if (!names.loaded || document.activeElement !== $("nFolders")) $("nFolders").value = (v.folders || []).join("\n");
+  names.loaded = true;
+  $("nMapped").textContent = v.mapped ? `${v.mapped} download folder${v.mapped === 1 ? "" : "s"} set there` : "none set there yet";
+  $("nUndo").hidden = !v.undo;
+  if (v.undo) { $("nUndo").textContent = `Undo last rename (${v.undo.count})`; $("nUndo").title = `Put back the names changed ${ago(v.undo.time)}`; }
+  const rd = v.reading;
+  $("nProgress").hidden = !rd; $("nRefresh").disabled = !!rd;
+  clearTimeout(names.poll);
+  if (rd) {
+    $("nProgress").querySelector(".ptext").textContent = rd.step + (rd.total ? ` (${rd.done} of ${rd.total})` : rd.done ? ` (${rd.done})` : "");
+    const bar = $("nProgress").querySelector(".pbar");
+    bar.classList.toggle("wait", !rd.total);
+    bar.querySelector(".pfill").style.width = rd.total ? Math.round(100 * rd.done / rd.total) + "%" : "";
+    names.poll = setTimeout(() => { if (!$("paneNames").hidden && !document.hidden) loadNames(); }, 1000);
+    return;
+  }
+  $("nError").hidden = !v.error; $("nError").textContent = v.error ? "Reading failed: " + v.error : "";
+  const s = v.summary || {};
+  $("nStats").innerHTML = v.at ? [
+    `<span><b>${s.gamelists || 0}</b> gamelist${s.gamelists === 1 ? "" : "s"} (${s.platforms || 0} platform${s.platforms === 1 ? "" : "s"})</span>`,
+    `<span class="${s.different ? "warn" : "ok"}"><b>${s.different || 0}</b> name${s.different === 1 ? "" : "s"} differ</span>`,
+    `<span><b>${s.same || 0}</b> the same</span>`,
+    s.ignored ? `<span><b>${s.ignored}</b> kept as in RomM</span>` : "",
+    `<span class="hint" title="RomM games on these platforms that no gamelist entry matches">${s.romm_not_in_gamelist || 0} not in a gamelist</span>`,
+    `<span class="hint" title="Gamelist entries with no RomM game">${s.gamelist_not_in_romm || 0} only in a gamelist</span>`,
+    `<span class="hint">read ${ago(v.at)}</span>`].join("") : "";
+  const files = v.gamelists || [];
+  const none = v.no_gamelist || [];
+  $("nFiles").hidden = !files.length && !none.length;
+  $("nFiles").querySelector("summary").textContent = `Gamelists read (${files.length})` + (none.length ? ` · ${none.length} platform${none.length === 1 ? "" : "s"} without one` : "");
+  $("nFileList").innerHTML = files.map(g => `<li>${esc(g.platform)}: <code>${esc(g.file)}</code> - ` +
+    (g.error ? `<span class="bad">${esc(g.error)}</span>` : `${g.games} game${g.games === 1 ? "" : "s"}`) + "</li>").join("") +
+    (none.length ? `<li class="hint">No gamelist.xml in the folder or its subfolders: ${none.map(esc).join(", ")}</li>` : "");
+  if (v.at && !files.length && !v.error) {
+    $("nError").textContent = "No gamelist.xml found. Set the platform folders on the RomM library page, or add an extra gamelist folder above.";
+    $("nError").hidden = false;
+  }
+  const plats = [...new Set((v.rows || []).map(r => r.platform))].sort((a, b) => a.localeCompare(b));
+  const cur = $("nPlatform").value;
+  $("nPlatform").innerHTML = `<option value="">All platforms</option>` + plats.map(p => `<option>${esc(p)}</option>`).join("");
+  $("nPlatform").value = plats.includes(cur) ? cur : "";
+  const ids = new Set((v.rows || []).map(r => r.id));
+  names.sel.forEach(id => { if (!ids.has(id)) names.sel.delete(id); });
+  Object.keys(names.typed).forEach(id => { if (!ids.has(+id)) delete names.typed[id]; });
+  renderNames();
+}
+
+function namesShown() {
+  const q = $("nFind").value.trim().toLowerCase(), plat = $("nPlatform").value, show = $("nShow").value;
+  return (names.view?.rows || []).filter(r =>
+    (show === "all" || (show === "ignored" ? r.ignored : !r.ignored && (show !== "case" || r.case_only))) &&
+    (!plat || r.platform === plat) &&
+    (!q || [r.file, r.romm_name, r.gamelist_name].some(t => t.toLowerCase().includes(q))));
+}
+
+function newName(r) { return names.typed[r.id] ?? r.gamelist_name; }
+
+function renderNames() {
+  const rows = namesShown(), shown = rows.slice(0, N_MAX_ROWS);
+  $("nBody").innerHTML = shown.length ? shown.map(r => `<tr data-id="${r.id}" class="${r.ignored ? "ign" : ""}">
+    <td><input type="checkbox" class="nsel" ${names.sel.has(r.id) ? "checked" : ""} aria-label="Select ${esc(r.gamelist_name)}"></td>
+    <td>${esc(r.platform)}</td>
+    <td class="f" title="${esc(r.file)}&#10;${esc(r.gamelist)}">${esc(r.file)}</td>
+    <td class="rn">${esc(r.romm_name)}</td>
+    <td class="gn">${esc(r.gamelist_name)}${r.case_only ? '<span class="tag">case</span>' : ""}</td>
+    <td class="nn"><input type="text" value="${esc(newName(r))}" class="${r.id in names.typed ? "edited" : ""}" aria-label="New name for ${esc(r.file)}" maxlength="350"></td>
+    <td class="b"><button type="button" class="primary napply">Rename</button>
+      <button type="button" class="nign" title="${r.ignored ? "Show this game with the others again" : "Keep RomM's name (hidden until the gamelist name changes)"}">${r.ignored ? "Show again" : "Keep"}</button></td>
+  </tr>`).join("") : `<tr><td colspan="7" class="hint" style="padding:12px">${names.view?.at ? "Nothing to show." : ""}</td></tr>`;
+  $("nMore").hidden = rows.length <= N_MAX_ROWS;
+  $("nMore").textContent = `Showing ${N_MAX_ROWS} of ${rows.length} - narrow the list with the search or platform to see the rest.`;
+  $("nAll").checked = shown.length > 0 && shown.every(r => names.sel.has(r.id));
+  const n = names.sel.size;
+  $("nApplySel").disabled = $("nIgnoreSel").disabled = !n;
+  $("nApplySel").textContent = n ? `Rename ${n} in RomM` : "Rename selected in RomM";
+  $("nIgnoreSel").textContent = n ? `Keep RomM's name (${n})` : "Keep RomM's name";
+}
+
+async function namesApply(ids) {
+  const rows = (names.view?.rows || []).filter(r => ids.includes(r.id));
+  const changes = rows.map(r => ({ id: r.id, name: newName(r) }));
+  if (!changes.length) return;
+  if (changes.length > 1 && !confirm(`Rename ${changes.length} games in RomM? Undo puts them back.`)) return;
+  $("nApplySel").disabled = true;
+  try {
+    const v = await api("POST", "api/names/apply", { changes });
+    rows.forEach(r => { names.sel.delete(r.id); delete names.typed[r.id]; });
+    (v.failed || []).forEach(f => names.sel.add(f.id));
+    showNames(v);
+    toast(v.failed?.length ? `Renamed ${v.done}; ${v.failed.length} failed: ${v.failed[0].error}` : `Renamed ${v.done} in RomM`, v.failed?.length ? 6000 : 3000);
+  } catch (e) { toast("Rename failed: " + e.message, 6000); renderNames(); }
+}
+
+async function namesIgnore(ids, ignore) {
+  try {
+    const v = await api("PUT", "api/names/ignore", { ids, ignore });
+    ids.forEach(id => names.sel.delete(id));
+    showNames(v);
+  } catch (e) { toast(e.message, 6000); }
+}
+
+$("nBody").addEventListener("input", e => {
+  const tr = e.target.closest("tr[data-id]"); if (!tr || e.target.type !== "text") return;
+  const r = names.view.rows.find(x => x.id === +tr.dataset.id);
+  if (e.target.value === r.gamelist_name) delete names.typed[r.id]; else names.typed[r.id] = e.target.value;
+  e.target.classList.toggle("edited", r.id in names.typed);
+});
+$("nBody").addEventListener("keydown", e => {
+  if (e.key === "Enter" && e.target.type === "text") namesApply([+e.target.closest("tr").dataset.id]);
+});
+$("nBody").addEventListener("click", e => {
+  const tr = e.target.closest("tr[data-id]"); if (!tr) return;
+  const id = +tr.dataset.id;
+  if (e.target.classList.contains("nsel")) { e.target.checked ? names.sel.add(id) : names.sel.delete(id); renderNames(); }
+  else if (e.target.classList.contains("napply")) namesApply([id]);
+  else if (e.target.classList.contains("nign")) namesIgnore([id], !names.view.rows.find(x => x.id === id).ignored);
+});
+$("nAll").onchange = () => {
+  namesShown().slice(0, N_MAX_ROWS).forEach(r => $("nAll").checked ? names.sel.add(r.id) : names.sel.delete(r.id));
+  renderNames();
+};
+["nFind", "nPlatform", "nShow"].forEach(id => $(id).addEventListener("input", renderNames));
+$("nApplySel").onclick = () => namesApply([...names.sel]);
+$("nIgnoreSel").onclick = () => {
+  const rows = names.view.rows.filter(r => names.sel.has(r.id));
+  namesIgnore(rows.map(r => r.id), !rows.every(r => r.ignored));
+};
+$("nRefresh").onclick = () => loadNames(true);
+$("nFoldersSave").onclick = async () => {
+  try { showNames(await api("PUT", "api/names/options", { folders: $("nFolders").value })); toast("Saved"); }
+  catch (e) { toast(e.message, 6000); }
+};
+$("nUndo").onclick = async () => {
+  if (!confirm(`Put back the ${names.view.undo.count} name(s) changed ${ago(names.view.undo.time)}?`)) return;
+  try {
+    const v = await api("POST", "api/names/undo");
+    showNames(v);
+    toast(v.failed?.length ? `Put back ${v.done}; ${v.failed.length} failed: ${v.failed[0].error}` : `Put back ${v.done} name(s)`, 5000);
+  } catch (e) { toast(e.message, 6000); }
+};
+
 // ------------------------------------------------------------- main tabs
 function showPane(pane) {
-  pane = pane === "romm" ? "romm" : "links";
+  pane = ["romm", "names"].includes(pane) ? pane : "links";
   document.querySelectorAll(".maintabs [data-pane]").forEach(b => {
     b.classList.toggle("on", b.dataset.pane === pane); b.setAttribute("aria-selected", String(b.dataset.pane === pane));
   });
@@ -1266,10 +1487,12 @@ function showPane(pane) {
     a.classList.toggle("on", a.dataset.pane === pane);
     if (a.dataset.pane === pane) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
   });
-  $("paneTitle").textContent = pane === "romm" ? "RomM library" : "Frontend links";
+  $("paneTitle").textContent = {romm: "RomM library", names: "Game names"}[pane] || "Frontend links";
   $("paneLinks").hidden = pane !== "links"; $("linksActions").hidden = pane !== "links";
   $("paneRomm").hidden = pane !== "romm"; $("rommActions").hidden = pane !== "romm";
+  $("paneNames").hidden = pane !== "names"; $("namesActions").hidden = pane !== "names";
   if (pane === "romm") loadRomm();
+  if (pane === "names") loadNames();
   if (location.hash !== "#" + pane) history.replaceState(null, "", "#" + pane);
   try { localStorage.setItem("pane", pane); } catch (e) {}
 }

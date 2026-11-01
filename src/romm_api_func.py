@@ -361,6 +361,24 @@ class RommUser:
         response.raise_for_status()
         return response.json()
 
+    def rename_rom(self, rom_id: int, name: str) -> Dict:
+        """Give a ROM a new name in RomM (Game names page). Only `name` is sent, as a form field:
+        RomM keeps every other field, derives the sort name again, and keeps this name on later
+        scans. The file on disk is not touched (that would be fs_name). -> the updated ROM."""
+        url = f"{self.url}/api/roms/{int(rom_id)}"
+        try:
+            response = requests.put(url, files={"name": (None, name)}, timeout=60, **self._auth_kwargs())
+        except requests.exceptions.RequestException as e:
+            raise RommUnreachable(f"Can't reach RomM at {self.url} ({type(e).__name__})") from e
+        logger.debug(f"PUT {url} - {response.status_code}")
+        if response.status_code in (401, 403):
+            raise RuntimeError("RomM refused the change - the user or API token needs write access to roms "
+                               "(roms.write)")
+        if response.status_code == 404:
+            raise RuntimeError("RomM doesn't have this game any more")
+        response.raise_for_status()
+        return response.json()
+
     def heartbeat(self) -> Dict:
         response = requests.get(f"{self.url}/api/heartbeat", timeout=10)
         response.raise_for_status()

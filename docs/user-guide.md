@@ -162,6 +162,20 @@ them (only the links ROM Mapper made).
 
 **RomM platforms list** shows every platform RomM knows, with a search box.
 
+### Game names
+
+Open **Game names** in the menu (`http://YOUR-SERVER:8080/roms/#names`). It reads the `gamelist.xml`
+in each platform folder of the RomM library page (and its subfolders) and lists every game whose name
+in RomM is different.
+
+1. Renaming needs write access to ROMs: give your RomM API token **roms.write** too (or use a RomM
+   login), then restart the container.
+2. Are your gamelists somewhere else (ES-DE keeps them in `ES-DE/gamelists/<system>/`)? Mount that
+   folder into the container at the same path and add it under **Extra gamelist folders**.
+3. For each game: **Rename** gives RomM the gamelist's name - edit the *New name* box first to use
+   your own. **Keep** leaves RomM's name and hides the game. Tick several games to do them at once.
+4. Changed your mind? **Undo last rename** puts the names back.
+
 ## 12. Troubleshooting
 
 **"Source folder not found" / "Folder not found".** The folder isn't inside the folder mounted into

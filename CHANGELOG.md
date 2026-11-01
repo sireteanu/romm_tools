@@ -9,6 +9,19 @@ romm_tools continues two projects; their own changelogs are kept as they were:
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-10-31
+
+### New
+- **Game names** page (menu: *Game names*, `/roms/#names`): RomM's name for each game next to the
+  name in your frontend's `gamelist.xml` (ES-DE, Batocera, RetroBat, Knulli). Where they differ, give
+  RomM the gamelist's name, type your own, or keep RomM's - one game or many at once, with
+  **Undo last rename**. Only the name shown in RomM changes; files and gamelists aren't touched, and
+  RomM keeps the new name when it scans again.
+- The gamelists are read from the platform folders of the RomM library page and their subfolders
+  (a gamelist in `snes/Hacks/` counts for the games in `Hacks/`); folders without one are skipped and
+  listed. Gamelists kept elsewhere (ES-DE's `gamelists` folder) can be added on the page.
+- Renaming needs a RomM API token with write access to ROMs (`roms.write`) or a RomM login.
+
 ## [1.0.1] - 2026-10-27
 
 ### Fixed

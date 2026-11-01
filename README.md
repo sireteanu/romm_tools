@@ -72,6 +72,7 @@ Use both, or either one on its own. Made for Unraid; runs on any Linux Docker ho
 | Frontend links | A grid with one row per folder in your source folders and one column per frontend. Type the name a frontend should see; **Resync** makes `<mapping folder>/<frontend>/<name>` links, optionally with each system's `media/` folder. |
 | Status, schedule | Rows marked *New*, *Unmapped*, *Missing*; duplicate names highlighted. Scans and resyncs on their own schedule; a resync changes only what differs. |
 | RomM library | Pick the RomM platform for any of your download folders (nested too); get the **volume lines** for RomM's compose file (each folder mounted as `roms/<platform>`) and a `config.yml` with categories for platforms with subfolders. One-time import of an old RomM mapping CSV. |
+| Game names | RomM's name for each game next to the `<name>` in your frontends' `gamelist.xml` (also gamelists in subfolders). Where they differ: give RomM the gamelist's name, type your own, or keep RomM's - one game or many at once, with **Undo**. Only the name shown in RomM changes. |
 
 ### Shared
 
@@ -284,6 +285,9 @@ needs it.
 | `GET /roms/api/romm/platforms` | RomM's platform list (`slugs`), loaded once by the page |
 | `GET /roms/api/romm` · `PUT /roms/api/romm/options` · `PUT /roms/api/romm/map {path, action}` · `POST /roms/api/romm/links` · `POST /roms/api/romm/import` | RomM library data, options (download folders, `depths`, `skip_names`), a folder's choice, remove old platform links, one-time CSV import. While the folders are read in the background the answer is `{reading: {...}}` |
 | `GET /roms/api/romm/progress` | The background read: `running`, `source` / `sources`, `path`, `done` / `total`, `current`, `error` |
+| `GET /roms/api/names[?fresh=1]` · `GET /roms/api/names/progress` | Game names: rows where RomM's name differs from the gamelist's, gamelists read, platforms without one, summary (`{reading}` while gamelists and RomM are read in the background) |
+| `PUT /roms/api/names/options {folders}` · `PUT /roms/api/names/ignore {ids, ignore}` | Extra gamelist folders · keep RomM's name for games (until the gamelist name changes) |
+| `POST /roms/api/names/apply {changes: [{id, name}]}` · `POST /roms/api/names/undo` | Rename in RomM (only `name` is sent) · put back the last batch |
 
 ---
 
@@ -313,9 +317,10 @@ src/mapper/server.py     ROM folders (Flask): mapping storage, source folders, s
 src/mapper/links.py      link engine: desired links, apply only the differences (ROM Mapper)
 src/mapper/romm.py       RomM library: folder roles, platforms as mounts, categories, config.yml
 src/mapper/romm_slugs.py RomM's platform list (vendored)
+src/mapper/gamelists.py  Game names: read gamelist.xml files, match them to RomM's games
 src/mapper/static/       ROM folders page (one HTML file, no build step)
 tests/                   save sync tests, mock RomM and demo data; test_romm_tools.py = the glue
-tests/mapper/            ROM folders tests (test_mapping, test_romm, test_upgrades)
+tests/mapper/            ROM folders tests (test_mapping, test_romm, test_upgrades, test_gamelists)
 unraid/                  Unraid template and Compose Manager file
 .github/workflows/       tests.yml (every push), release.yml (a release per push to main)
 docs/                    user guide, references, design notes, old changelogs, screenshots

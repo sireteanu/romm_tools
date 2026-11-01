@@ -61,6 +61,13 @@ password, the `SAVE_SYNC` / `ROM_FOLDERS` switches, ROM folders logging into the
 ownership for a root container (`src/mapper/links.py`), the platform picker using save sync's
 platform catalog, and `tests/test_romm_tools.py`.
 
+Added in romm_tools (sireteanu, MIT): the **Game names** page (`src/mapper/gamelists.py`, its routes
+in `src/mapper/server.py`, `RommUser.rename_rom` in `src/romm_api_func.py`, `tests/mapper/test_gamelists.py`).
+Its matching of `gamelist.xml` entries to RomM's games follows how RomM's own gamelist metadata
+source does it (`backend/handler/metadata/gamelist_handler.py` in `rommapp/romm`); it is written
+anew, no RomM code is copied. The `gamelist.xml` format is EmulationStation's
+([GAMELISTS.md](https://github.com/Aloshi/EmulationStation/blob/master/GAMELISTS.md)).
+
 ## Third-party
 
 - The pages' colours, font stack, sizes and corner radii follow RomM's published design tokens (`frontend/src/v2/styles/tokens.css` in `rommapp/romm`) so they look at home next to RomM. RomM's logo and artwork are **not** used, and this project is not made by, affiliated with, or endorsed by the RomM project, in line with RomM's [brand guidelines](https://docs.romm.app/latest/About/Brand-Guidelines/).

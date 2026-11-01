@@ -59,7 +59,7 @@ class Store:
         slug, display, _ = PLATFORMS[platform_id]
         stem = fs_name.rsplit(".", 1)[0]
         self.roms.append({
-            "id": rom_id, "name": name, "fs_name": fs_name, "fs_name_no_ext": stem,
+            "id": rom_id, "name": name, "fs_name": fs_name, "fs_name_no_ext": stem, "fs_path": f"roms/{slug}",
             "fs_size_bytes": random.randint(1, 600) * 1024 * 1024,
             "platform_id": platform_id, "platform_slug": slug, "platform_fs_slug": slug,
             "platform_display_name": display,
@@ -117,6 +117,19 @@ def roms(limit: int = 50, offset: int = 0, platform_ids: Optional[List[int]] = Q
     time.sleep(S.page_delay)
     items = pool[offset:offset + limit]
     return {"items": items, "total": len(pool) if with_total else None, "limit": limit, "offset": offset}
+
+
+@app.put("/api/roms/{rom_id}")
+async def update_rom(rom_id: int, request: Request):
+    """Like RomM: a multipart form; only the fields sent change (Game names sends just name)."""
+    form = await request.form()
+    rom = next((r for r in S.roms if r["id"] == rom_id), None)
+    if rom is None:
+        return Response(status_code=404)
+    if "name" in form:
+        rom["name"] = str(form["name"])
+        rom["updated_at"] = now().isoformat()
+    return rom
 
 
 @app.post("/debug/touch/{rom_id}")

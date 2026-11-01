@@ -62,6 +62,25 @@ def main(root: Path):
     (sv / "gb").mkdir(parents=True, exist_ok=True)
     (st / "saturn").mkdir(parents=True, exist_ok=True)
 
+    # ROM folders with frontend gamelists for the Game names page (names that differ from the mock RomM's)
+    gamelists = {
+        "snes": [("Starfall Odyssey (USA).sfc", "Starfall Odyssey: The Lost Stars"), ("Pixel Knights (USA).sfc", "Pixel Knights"),
+                 ("Lantern Keep (USA).sfc", "Lantern Keep - Director's Cut")],
+        "gba": [("Neon Drift (Europe).gba", "Neon Drift Turbo"), ("Moonlit Harbor (USA).gba", "MOONLIT HARBOR"),
+                ("Clockwork Garden (USA).gba", "Clockwork Garden"), ("Paper Comets (USA).gba", "Paper Comets")],
+        "n64": [("Thunder Rally 64 (USA).z64", "Thunder Rally 64: World Tour"), ("Orbit Golf (USA).z64", "Orbit Golf")],
+    }
+    for system, games in gamelists.items():
+        folder = root / "roms" / system
+        folder.mkdir(parents=True, exist_ok=True)
+        for file, _name in games:
+            (folder / file).write_bytes(b"demo")
+        entries = "".join(f"  <game>\n    <path>./{f}</path>\n    <name>{n.replace('&', '&amp;')}</name>\n  </game>\n"
+                          for f, n in games)
+        (folder / "gamelist.xml").write_text(f'<?xml version="1.0"?>\n<gameList>\n{entries}</gameList>\n', encoding="utf-8")
+    (root / "roms" / "psx").mkdir(parents=True, exist_ok=True)            # a platform without a gamelist
+    (root / "roms" / "psx" / "Crystal Caverns (USA).chd").write_bytes(b"demo")
+
     def md5(b):
         return hashlib.md5(b).hexdigest()
     data = root / "data"

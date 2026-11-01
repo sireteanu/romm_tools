@@ -26,8 +26,9 @@ instructions are in the [user guide](user-guide.md).
 2. [The one folder mounted at the same path](#the-one-folder-mounted-at-the-same-path)
 3. [How it works](#how-it-works)
 4. [RomM](#romm)
-5. [Settings and files](#settings-and-files)
-6. [Upgrading from older versions](#upgrading-from-older-versions)
+5. [Game names](#game-names)
+6. [Settings and files](#settings-and-files)
+7. [Upgrading from older versions](#upgrading-from-older-versions)
 
 ---
 
@@ -42,6 +43,7 @@ instructions are in the [user guide](user-guide.md).
 | Status | Rows are marked *New* (on disk, not mapped yet), *Unmapped*, *Missing* (mapped, gone from disk). Filter by status, search, remove missing rows. Duplicate names for one frontend are highlighted (the first row gets the link). |
 | Schedule | Scan and resync each on their own interval, in minutes, hours or days (scans can add new folders automatically). |
 | RomM | Pick the RomM platform for any of your folders; romm_tools generates the volume lines for RomM's compose file (each folder mounted as `roms/<platform>`) and a `config.yml` with category levels for platforms with subfolders. |
+| Game names | RomM's names next to the names in your frontends' `gamelist.xml`; rename games in RomM to the gamelist's name or your own, with Undo. |
 | Storage | Everything is stored by the app in its config folder (JSON); no files to edit by hand. |
 
 ---
@@ -166,6 +168,47 @@ any newer ones in the platform catalog save sync downloads from RomM's GitHub
 
 ---
 
+## Game names
+
+![Game names: RomM's name, the gamelist's name and the new name for each game that differs](screenshots/game-names.png)
+
+The **Game names** page (`/roms/#names`) lists every game whose name in RomM differs from its
+`<name>` in a frontend's `gamelist.xml` (ES-DE, Batocera, RetroBat, Knulli). For each one you can
+give RomM the gamelist's name (**Rename**), type another name first, or **Keep** RomM's name. Tick
+several (or the box in the header for every game shown) to do them at once. **Undo last rename** puts
+back the names of the last batch (the last 20 batches are kept).
+
+Only the name RomM shows changes: romm_tools sends just `name` to `PUT /api/roms/{id}`. Files on disk
+and the gamelists are never touched. RomM derives the sort name again and keeps a name it was given
+when it scans the library later (until you *Unmatch* the game in RomM, which resets the name to the
+file name). Writing needs a RomM user or API token with **write access to ROMs** (`roms.write`) - the
+token from the save sync setup only reads ROMs.
+
+**Where the gamelists are read**
+
+- The `gamelist.xml` in every platform folder of the **RomM library** page - the folder mounted as
+  `roms/<platform>`, which is also the file RomM's own *gamelist* metadata source reads.
+- **Extra gamelist folders** (set on the page): folders whose subfolders are named after a RomM
+  platform (its folder name or slug): ES-DE's `gamelists` folder, a frontend's `roms` folder, or
+  RomM's `library/roms`. They must be mounted into the container at the same path.
+
+Not every folder needs a gamelist; platforms without one are listed under *Gamelists read*.
+**Subfolders** are searched too, up to 4 levels: a gamelist in `snes/Hacks/` lists its games relative
+to `Hacks/`, so they match RomM's games in that category. Media folders (`media`, `images`, `videos`,
+`manuals`, ...), the *Never read folders named* of the RomM library page and folders that are another
+platform aren't searched. When two gamelists list the same game, the one nearer the platform folder wins.
+
+**Matching** works like RomM's: the game's path inside the platform folder (`Hacks/Game.sfc`) first,
+else the file name alone when only one gamelist entry has it. The counts show how many names are the
+same, how many RomM games no gamelist lists, and how many gamelist entries have no RomM game.
+*Keep* hides a game until its gamelist name changes; *Kept as in RomM* in the **Show** list brings them
+back, and *Only upper/lower case differs* finds names like `MOONLIT HARBOR`.
+
+Reading a big library takes a moment (it runs in the background with a progress bar). It happens when
+the page opens for the first time and on **Refresh** - nothing runs on a schedule.
+
+---
+
 ## Settings and files
 
 All in the app data folder (`/data` in Docker; `CONFIG_DIR` points it elsewhere, e.g. `/config` with a rom-mapper config folder):
@@ -175,6 +218,7 @@ All in the app data folder (`/data` in Docker; `CONFIG_DIR` points it elsewhere,
 | `rom-mapper-mapping.json` | The mapping: frontends (name, media toggle, media location) and rows (folder, one name per frontend) |
 | `rom-mapper-mapping.json.bak` | The previous version, written on every save |
 | `rom-mapper-state.json` | Source folders, schedule settings (`scan_every` / `scan_unit`, `sync_every` / `sync_unit`; units `minutes`, `hours`, `days`), last scan and last resync |
+| `game-names.json` | Game names: extra gamelist folders (`folders`), games you keep RomM's name for (`ignored`: RomM id -> the gamelist name at the time), the last 20 batches of renames for Undo (`history`) |
 | `romm-mapper.json` | RomM: download folders (`sources`), levels per folder (`depths`, only those not set to all), folder names never read (`skip_names`; missing = `["media"]`), your choices (`map`, by `<download folder>/<path>`: a slug, `exclude`, ...; 1.0.9's `cat:<slug>` reads as the slug). Settings of the platform-links versions (`links_dir`, `keep_links`, `romm_folder`, `layout`, `variants`, `mode`) are ignored |
 
 Files are written to a temporary file first and then swapped in, so a crash never leaves half a
