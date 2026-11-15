@@ -195,6 +195,8 @@ tr.off .pf-folder,tr.off .pf-target{opacity:.55}
 .dev .m{color:var(--muted);font-size:12px;margin-top:4px}
 .dev .dot{width:8px;height:8px;border-radius:50%;background:var(--faint);display:inline-block}
 .dev .dot.on{background:var(--ok)}
+.pf-mode{min-width:150px;padding:5px 8px}
+.pf-emu{width:140px;padding:5px 8px}
 .sv-tools{display:flex;gap:10px;flex-wrap:wrap;align-items:center;padding:0 20px 14px}
 .sv-tools .inp{width:auto}
 .sv-sel{position:sticky;top:0;z-index:5;display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:10px 20px;background:var(--panel);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
@@ -436,8 +438,9 @@ select option, select optgroup { background: var(--panel); color: var(--text); }
       </div>
       <div id="pf-notices" style="padding:0 20px"></div>
       <div style="overflow-x:auto"><table class="pf-table">
-        <thead><tr><th title="Switch syncing on or off for this system">Sync</th><th>Folder</th><th class="pf-c-games">Games</th><th>Matches RomM platform</th><th>How</th><th>Change</th></tr></thead>
-        <tbody id="pf-rows"><tr><td colspan="6" class="empty">Loading…</td></tr></tbody>
+        <thead><tr><th title="Who syncs this system's saves with RomM">Synced by</th><th>Folder</th><th class="pf-c-games">Games</th><th>Matches RomM platform</th><th>How</th><th>Change</th><th title="The emulator that writes these saves (optional)">Emulator</th></tr></thead>
+        <datalist id="pf-emus"><option value="mgba"><option value="vba-m"><option value="gambatte"><option value="gearboy"><option value="sameboy"><option value="snes9x"><option value="bsnes"><option value="mesen"><option value="fceumm"><option value="nestopia"><option value="genesis_plus_gx"><option value="picodrive"><option value="mupen64plus_next"><option value="parallel_n64"><option value="pcsx_rearmed"><option value="swanstation"><option value="beetle_psx_hw"><option value="duckstation"><option value="pcsx2"><option value="ppsspp"><option value="dolphin"><option value="melonds"><option value="desmume"><option value="azahar"><option value="flycast"><option value="mednafen_saturn"><option value="yabasanshiro"><option value="mame"><option value="fbneo"><option value="stella"><option value="handy"><option value="prosystem"></datalist>
+        <tbody id="pf-rows"><tr><td colspan="7" class="empty">Loading…</td></tr></tbody>
       </table></div>
       <div class="legend-row">
         <span><span class="how how-mapping">Mapped</span> saved on this page (pre-filled with common MinUI / NextUI / Knulli folder names)</span>
@@ -531,6 +534,7 @@ select option, select optgroup { background: var(--panel); color: var(--text); }
       </div>
       <div>
         <div class="card set-card" id="set-notify"></div>
+        <div class="card set-card" id="set-romm" style="margin-top:16px"></div>
         <div class="card set-card" id="set-syncthing" style="margin-top:16px"></div>
         <div class="card set-card" id="set-access" style="margin-top:16px"></div>
         <div class="card set-card" id="set-conn" style="margin-top:16px"></div>
@@ -769,6 +773,8 @@ function renderStatus(d){
   if (d.last_error) notes.push(`<div class="notice bad">${esc(d.last_error)}</div>`);
   if (d.config.pull_mode !== "off" && !d.config.pull_writable) notes.push(`<div class="notice">RomM → folder sync is enabled but your sync folders are mounted read-only. Remove <code>:ro</code> from the container's sync folder mappings to allow downloads.</div>`);
   if (d.config.dry_run) notes.push(`<div class="notice">DRY_RUN is on: nothing is uploaded or downloaded.</div>`);
+  const ov = Object.entries(d.cloud_overlap || {});
+  if (ov.length) notes.push(`<div class="notice">RetroArch Cloud Sync also syncs saves for ${ov.map(([f,o])=>`<b>${esc(f)}</b> (${plural(o.count,"game")})`).join(", ")} straight with RomM. Two sync paths for the same saves can make them bounce back and forth: on the <a href="#platforms">Platforms page</a>, set those systems to <i>RetroArch Cloud Sync</i>, or turn Cloud Sync off on that device.</div>`);
   $("#notices").innerHTML = notes.join("");
 
   $("#last-sync").textContent = ago(d.last_sync_finished);
@@ -934,7 +940,7 @@ function slugFromInput(v){
 }
 async function loadPlatforms(force){
   try { pf.data = await api("api/platforms"); renderPlatforms(); }
-  catch(e){ $("#pf-rows").innerHTML = `<tr><td colspan="6" class="empty">Couldn't load platforms: ${esc(e.message)}</td></tr>`; }
+  catch(e){ $("#pf-rows").innerHTML = `<tr><td colspan="7" class="empty">Couldn't load platforms: ${esc(e.message)}</td></tr>`; }
 }
 function renderPlatforms(){
   const d = pf.data; if(!d) return;
@@ -977,24 +983,29 @@ function renderPlatforms(){
     const target = f.slug ? `<div class="nm">${esc(f.name || f.slug)}</div><div class="sl">${esc(f.slug)}${f.in_library?` · ${plural(f.rom_count,"ROM")} in your RomM`:` · <span style="color:var(--warn)">not in your RomM library</span>`}</div>`
                           : `<span style="color:var(--muted)">—</span>`;
     return `<tr class="${dirty?"dirty":""}${f.enabled?"":" off"}" data-folder="${esc(f.folder)}">
-      <td><label class="sw" title="${f.enabled?"Syncing — click to switch off":"Not syncing — click to switch on"}"><input type="checkbox" data-en ${f.enabled?"checked":""}><i></i></label></td>
-      <td><div class="pf-folder">${esc(f.folder)}</div>${f.enabled?"":`<div style="color:var(--warn);font-size:12px">sync off</div>`}</td>
+      <td><select class="inp pf-mode" data-mode aria-label="Who syncs ${esc(f.folder)}">${[["sync","romm_tools"],["cloud","RetroArch Cloud Sync"],["off","Not synced"]].map(([v,l])=>`<option value="${v}" ${f.mode===v?"selected":""}>${l}</option>`).join("")}</select></td>
+      <td><div class="pf-folder">${esc(f.folder)}</div>${f.mode==="off"?`<div style="color:var(--warn);font-size:12px">sync off</div>`:f.mode==="cloud"?`<div style="color:var(--muted);font-size:12px">RetroArch syncs it with RomM</div>`:""}${(state.data && state.data.cloud_overlap && state.data.cloud_overlap[f.folder] && f.mode==="sync")?`<div style="color:var(--warn);font-size:12px" title="${esc(state.data.cloud_overlap[f.folder].games.join(", "))}">⚠ RetroArch Cloud Sync also syncs ${plural(state.data.cloud_overlap[f.folder].count,"game")} here</div>`:""}</td>
       <td class="pf-c-games">${f.games}${f.unmatched?` <span style="color:var(--warn)">(${f.unmatched} unmatched)</span>`:""}</td>
       <td class="pf-target">${target}</td>
       <td><span class="how how-${f.how}">${HOW[f.how]}</span></td>
       <td class="pf-c-pick"><div class="pf-pick">
         <input list="pf-options" placeholder="${f.how==="none"?"Pick a RomM platform…":"Override automatic match…"}" value="${esc(val)}" aria-label="RomM platform for ${esc(f.folder)}">
         ${(f.how==="mapping" || (dirty && edit)) ? `<button class="iconbtn" data-clear title="Remove mapping (use automatic matching)" aria-label="Remove mapping">✕</button>` : ""}
-      </div></td></tr>`;
-  }).join("") || `<tr><td colspan="6" class="empty">No system folders found in your sync folders yet.</td></tr>`;
+      </div></td>
+      <td><input class="inp pf-emu" data-emu list="pf-emus" value="${esc(f.emulator||"")}" placeholder="any" aria-label="Emulator for ${esc(f.folder)}" title="Sent to RomM with uploads. A RomM copy written by a different emulator waits for your approval."></td></tr>`;
+  }).join("") || `<tr><td colspan="7" class="empty">No system folders found in your sync folders yet.</td></tr>`;
 
   $("#pf-rows").querySelectorAll("tr[data-folder]").forEach(tr => {
     const folder = tr.dataset.folder, f = d.folders.find(x=>x.folder===folder), input = tr.querySelector("input[list]");
-    tr.querySelector("[data-en]").onchange = async ev => {
-      const on = ev.target.checked;
-      try { pf.data = await api("api/platforms/enabled", {method:"PUT", body:JSON.stringify({folder, enabled:on})}); renderPlatforms();
-            toast(on ? `Syncing ${folder} again` : `${folder} won't be synced`); }
-      catch(e){ ev.target.checked = !on; toast("⚠ "+e.message); }
+    tr.querySelector("[data-mode]").onchange = async ev => {
+      const mode = ev.target.value;
+      try { pf.data = await api("api/platforms/mode", {method:"PUT", body:JSON.stringify({folder, mode})}); renderPlatforms();
+            toast({sync:`romm_tools syncs ${folder}`, off:`${folder} won't be synced`, cloud:`${folder} is left to RetroArch Cloud Sync`}[mode]); }
+      catch(e){ toast("⚠ "+e.message); renderPlatforms(); }
+    };
+    tr.querySelector("[data-emu]").onchange = async ev => {
+      try { pf.data = await api("api/platforms/emulator", {method:"PUT", body:JSON.stringify({folder, emulator:ev.target.value})}); renderPlatforms(); toast(ev.target.value ? `${folder}: ${ev.target.value}` : `${folder}: any emulator`); }
+      catch(e){ toast("⚠ "+e.message); }
     };
     input.onchange = () => {
       const v = input.value.trim();
@@ -1061,6 +1072,8 @@ function renderSettings(){
   $("#set-timing").innerHTML = `<h3>Timing</h3><p>Current sync mode: <b>${esc(d.connection.sync_mode)}</b>.</p>${by("timing")}`;
   $("#set-backups").innerHTML = `<h3>Files &amp; backups</h3><p>How files are written to your sync folders. Before any file is overwritten, the replaced version is copied to the backups folder.</p>${by("backups")}`;
   $("#set-access").innerHTML = `<h3>Dashboard access</h3><p>Optional login for this dashboard.</p>${by("access")}`;
+  $("#set-romm").innerHTML = `<h3>RomM connection</h3><div id="romm-conn" class="hlp">Loading…</div>${by("romm")}`;
+  loadRommConn();
   const stF = d.fields.filter(f=>f.group==="syncthing" && f.key!=="SYNCTHING_FOLDERS").map(fieldHTML).join("");
   $("#set-syncthing").innerHTML = `<h3>Syncthing <span style="color:var(--muted);font-weight:400;font-size:13px">optional</span></h3><p>Lets the app wait until Syncthing has finished receiving a save before syncing it, and shows your devices on the dashboard. Read-only: nothing in Syncthing is changed.</p>${stF}
     <div class="field"><div class="lbl">Syncthing folders with your saves</div><div id="st-folders" class="hlp">${d.fields.find(f=>f.key==="SYNCTHING_URL").value ? "Loading…" : "Save the address and API key first."}</div></div>`;
@@ -1077,6 +1090,31 @@ function renderSettings(){
   });
   document.querySelectorAll("#view-set [data-reset]").forEach(b => b.onclick = () => { sv.reset.add(b.dataset.reset); delete sv.edits[b.dataset.reset]; renderSettings(); });
   renderSetSavebar();
+}
+let pairTimer = null;
+async function loadRommConn(){
+  clearTimeout(pairTimer);
+  const box = $("#romm-conn"); if (!box) return;
+  try {
+    const d = await api("api/romm/device"), p = d.pairing || {};
+    const how = d.auth === "paired" ? "a token RomM issued when you paired this app" : d.auth === "api" ? "the API token from the container settings" : "the username and password from the container settings";
+    let html = `<p style="margin:0 0 8px">RomM ${esc(d.romm_version || "?")} · signed in with ${how}.${d.device_id ? ` Registered as the device <b>${esc(d.device_name)}</b>.` : " Not registered as a device."}</p>`;
+    if (p.status === "waiting") {
+      html += `<div class="notice" style="margin:0 0 8px">In RomM, approve the code <b style="font-size:16px;letter-spacing:2px;font-family:var(--mono)">${esc(p.user_code)}</b> — <a href="${esc(p.link)}" target="_blank" rel="noopener">open RomM's pairing page</a>. Waiting for approval…</div><button class="btn small" id="pair-cancel">Cancel</button>`;
+      pairTimer = setTimeout(loadRommConn, 3000);
+    } else {
+      if (p.status === "failed") html += `<div class="notice bad" style="margin:0 0 8px">${esc(p.error || "Pairing failed.")}</div>`;
+      if (p.status === "paired") html += `<div class="notice ok" style="margin:0 0 8px">Paired. ${S_FEATURES && !S_FEATURES.save_sync ? "Restart the container to start save sync." : "romm_tools now uses RomM's token for this device."}</div>`;
+      html += d.auth === "paired"
+        ? `<button class="btn small danger" id="pair-forget">Forget pairing (use the container login again)</button>`
+        : `<button class="btn small primary" id="pair-start">Pair with RomM instead of a token</button> <span class="hlp">RomM 5.4+: approve a short code in RomM; no API token to copy.</span>`;
+    }
+    box.className = ""; box.innerHTML = html;
+    const on = (id, fn) => { const b = $("#"+id); if (b) b.onclick = fn; };
+    on("pair-start", async () => { try { await api("api/romm/pair/start", {method:"POST"}); loadRommConn(); } catch(e){ toast("⚠ "+e.message); } });
+    on("pair-cancel", async () => { await api("api/romm/pair/cancel", {method:"POST"}); loadRommConn(); });
+    on("pair-forget", async () => { if (await confirmBox({title:"Forget the pairing?", body:"<p style='margin:0'>romm_tools goes back to the login from the container settings.</p>", ok:"Forget", danger:true})) { await api("api/romm/pair/forget", {method:"POST"}); loadRommConn(); } });
+  } catch(e) { box.className = "hlp"; box.textContent = e.message; }
 }
 async function loadSyncthingFolders(){
   const box = $("#st-folders");
@@ -1211,7 +1249,7 @@ function svGroups(rows){
 }
 function renderSaves(){
   const rows = svFiltered(), groups = svGroups(rows), shown = groups.slice(0, sv2.limit);
-  const side = (x, isR) => !x ? `<span class="none">—</span>` : `<b>${size(x.size)}</b> · ${ago(isR ? x.updated_at : x.mtime)}${isR && x.versions>1 ? ` <span class="chip warn" title="RomM keeps a copy of every upload">${x.versions} versions</span>` : ""}`;
+  const side = (x, isR) => !x ? `<span class="none">—</span>` : `<b>${size(x.size)}</b> · ${ago(isR ? x.updated_at : x.mtime)}${isR && x.versions>1 ? ` <span class="chip warn" title="RomM keeps a copy of every upload">${x.versions} versions</span>` : ""}${isR && x.emulator ? ` <span class="chip" title="The emulator that wrote RomM's copy">${esc(x.emulator)}</span>` : ""}`;
   $("#sv-rows").innerHTML = shown.map(g => {
     const all = g.rows.every(r=>sv2.sel.has(r.id)), some = g.rows.some(r=>sv2.sel.has(r.id));
     return `<tr class="g"><td><input type="checkbox" data-sg="${esc(g.key)}" ${all?"checked":""} ${!all&&some?"data-ind=1":""}></td><td colspan="4"><span class="gn">${esc(g.game)}</span> <span style="color:var(--muted)">· ${esc(g.system)} · ${plural(g.rows.length,"file")}</span>${svMatchInfo(g)}</td></tr>`
@@ -1449,7 +1487,9 @@ $("#status-filter").querySelectorAll("button").forEach(b => b.onclick = () => {
 });
 setInterval(()=>{ if(state.data) renderStatus(state.data); }, 15000); // keep "x min ago" fresh
 // ---------- parts of the app (save sync / ROM folders) ----------
+let S_FEATURES = null;
 api("api/features").then(f => {
+  S_FEATURES = f;
   document.querySelectorAll("[data-feature]").forEach(e => e.hidden = !f[e.dataset.feature]);
 }).catch(()=>{});
 route();

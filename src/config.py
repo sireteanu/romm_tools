@@ -60,6 +60,13 @@ class Config:
 
         # ROMM API Configuration
         self.ROMM_CREDENTIALS: RommUser = romm_credentials
+        # the login from the container settings, kept for "forget pairing" (src/devices.py)
+        self.ENV_LOGIN = (romm_credentials.auth_type, romm_credentials.api_token)
+        try:  # a token RomM issued when this app was paired replaces the configured login
+            from . import devices
+            devices.apply_saved(romm_credentials)
+        except Exception:  # noqa: BLE001 - no data folder yet (tests, first start)
+            pass
 
         # Sync Configuration
         self.SAVE_SYNC_DIR: Path | None = save_sync_dir
@@ -96,6 +103,8 @@ class Config:
         self.FULL_SCAN_INTERVAL_HOURS: int = full_scan_interval_hours
         # RomM keeps a copy per upload; older ones beyond this are moved to the recycle bin (0 = keep all)
         self.ROMM_KEEP_VERSIONS: int = int(os.getenv("ROMM_KEEP_VERSIONS", "0"))
+        # Register romm_tools as a RomM device (RomM 5.4+): auto | off (src/devices.py)
+        self.DEVICE_SYNC: str = (os.getenv("DEVICE_SYNC", "auto") or "auto").strip().lower()
         # Optional Syncthing integration: wait for Syncthing to finish before syncing, show device status
         self.SYNCTHING_URL: str = os.getenv("SYNCTHING_URL", "")
         self.SYNCTHING_API_KEY: str = os.getenv("SYNCTHING_API_KEY", "")
@@ -163,7 +172,14 @@ class Config:
 
         if not self.ROMM_CREDENTIALS.url:
             errors.append("ROMM Host URL is required!")
-        if self.ROMM_CREDENTIALS.auth_type == "api":
+        try:
+            from . import devices
+            paired = devices.has_paired_token()
+        except Exception:  # noqa: BLE001
+            paired = False
+        if paired:
+            pass  # paired with RomM on the Settings page: its token replaces the login settings
+        elif self.ROMM_CREDENTIALS.auth_type == "api":
             if not self.ROMM_CREDENTIALS.api_token:
                 errors.append("ROMM_API_TOKEN is required when ROMM_AUTH_TYPE=api!")
         else:

@@ -19,6 +19,12 @@ _lock = threading.RLock()
 
 # key -> spec. "attr" is the Config attribute the value is applied to.
 FIELDS: Dict[str, dict] = {
+    "DEVICE_SYNC": {"type": "choice", "choices": ["auto", "off"], "group": "romm",
+                    "labels": {"auto": "Register as a device", "off": "Don't register"},
+                    "label": "romm_tools as a RomM device (RomM 5.4+)",
+                    "help": "RomM then knows which version this app last synced: it refuses to overwrite a copy that "
+                            "changed meanwhile (you're asked instead) and lists romm_tools among your devices. "
+                            "Applies at the next start."},
     "PUSH_NEW_MODE": {"type": "choice", "choices": ["auto", "confirm"], "group": "sync",
                       "label": "New files in your sync folder → RomM",
                       "help": "auto: upload right away. confirm: ask before uploading any new file."},
@@ -210,7 +216,27 @@ def describe(cfg) -> dict:
 
 # region per-system sync switch
 def disabled_folders() -> set:
-    return {f.lower() for f in load().get("disabled_folders", [])}
+    """Folders save sync leaves alone: switched off, or handled by RetroArch Cloud Sync."""
+    data = load()
+    return {f.lower() for f in data.get("disabled_folders", []) + data.get("cloud_sync_folders", [])}
+
+
+def cloud_sync_folders() -> set:
+    return {f.lower() for f in load().get("cloud_sync_folders", [])}
+
+
+def set_folder_mode(folder: str, mode: str) -> None:
+    """mode: 'sync' (this app syncs it), 'off', or 'cloud' (RetroArch Cloud Sync syncs it with RomM directly)."""
+    if mode not in ("sync", "off", "cloud"):
+        raise ValueError("mode must be sync, off or cloud")
+    data = load()
+    for key, want in (("disabled_folders", mode == "off"), ("cloud_sync_folders", mode == "cloud")):
+        cur = [f for f in data.get(key, []) if f.lower() != folder.lower()]
+        if want:
+            cur.append(folder)
+        data[key] = sorted(cur, key=str.lower)
+    save(data)
+    invalidate_cache()
 
 
 def set_folder_enabled(folder: str, enabled: bool) -> None:
@@ -239,6 +265,38 @@ def sync_enabled(folder: str) -> bool:
 
 def invalidate_cache():
     _disabled_cache["at"] = 0.0
+    _emu_cache["at"] = 0.0
+
+
+# Per system folder: which emulator writes these saves (Platforms page), and whether RetroArch Cloud Sync handles
+# the folder instead of this app. Stored in settings.json as "folder_emulators" / "cloud_sync_folders".
+_emu_cache = {"at": 0.0, "v": {}}
+
+
+def folder_emulators() -> dict:
+    return {k.lower(): v for k, v in (load().get("folder_emulators") or {}).items() if v}
+
+
+def set_folder_emulator(folder: str, emulator: str | None) -> None:
+    data = load()
+    cur = {k: v for k, v in (data.get("folder_emulators") or {}).items() if k.lower() != folder.lower()}
+    if emulator:
+        cur[folder] = emulator.strip()
+    data["folder_emulators"] = cur
+    save(data)
+    invalidate_cache()
+
+
+def emulator_for(folder: str):
+    """The emulator set for a system folder on the Platforms page (sent to RomM with uploads), or None."""
+    import time
+    if time.monotonic() - _emu_cache["at"] > 5:
+        try:
+            _emu_cache["v"] = folder_emulators()
+        except Exception:  # noqa: BLE001
+            pass
+        _emu_cache["at"] = time.monotonic()
+    return _emu_cache["v"].get((folder or "").lower())
 # endregion
 
 

@@ -106,6 +106,9 @@ def initialize_romm_sync(app_cfg):
             if version:
                 STATE.romm_version = version
                 logger.info(f"Connected to RomM {version}.")
+            from src import devices
+            from src.version import get_version
+            devices.register(romm, get_version(), app_cfg.DEVICE_SYNC)
             # First sync. Compares all save states
             logger.info("Building local and romm libraries. This may take a while for large libraries...")
             STATE.set_phase("building", "Reading RomM library and sync folders")

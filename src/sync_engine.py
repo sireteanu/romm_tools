@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import re
 import shutil
 from datetime import datetime, timezone, timedelta
 from time import perf_counter
@@ -38,6 +39,30 @@ from .sync_files import (CONFLICT_MARKER, KIND_API, LocalFile, cached_md5, file_
                          md5_file, parse_dt, same_time, save_hash_cache)
 from .sync_rules import Decision, decide  # noqa: F401
 from .sync_errors import explain_error  # noqa: F401
+from .romm_client import RommConflict
+from .settings import emulator_for
+
+
+def same_emulator(a: str, b: str) -> bool:
+    """'Snes9x', 'snes9x' and 'snes9x_libretro' are the same emulator; 'mgba' and 'vba-m' are not."""
+    norm = lambda s: re.sub(r"[^a-z0-9]", "", s.lower().replace("_libretro", "").replace("libretro", ""))  # noqa: E731
+    return norm(a) == norm(b)
+
+
+_ra_cache: dict = {"at": 0.0, "ids": set()}
+
+
+def retroarch_devices(client) -> set:
+    """Ids of the RetroArch Cloud Sync devices RomM knows (RomM 5.4+, needs devices.read). Cached for an hour."""
+    import time
+    if time.monotonic() - _ra_cache["at"] < 3600:
+        return _ra_cache["ids"]
+    try:
+        ids = {d["id"] for d in client.list_devices() if (d.get("client") or "").lower() == "retroarch"}
+    except Exception:  # noqa: BLE001
+        ids = set()
+    _ra_cache.update(at=time.monotonic(), ids=ids)
+    return ids
 
 
 class SyncEngine:
@@ -173,6 +198,7 @@ class SyncEngine:
                     del STATE.pending[a.id]
             if stale:
                 logger.info(f"Removed {len(stale)} queued item(s) that no longer apply.")
+            self._check_cloud_sync_overlap(matched, remote)
 
         STATE.save()
         save_hash_cache(prune=full)
@@ -219,6 +245,7 @@ class SyncEngine:
             STATE.clear_error(f"dup:{game.platform}:{key}")
             d = decide(lf, rf, STATE.get_baseline(key), self.cfg.PUSH_NEW_MODE, pull_mode, force,
                        self.cfg.DELETE_MODE, remote_ids)
+            d = self._check_emulator(d, game.platform, rf)
 
             if d.kind is None:
                 STATE.drop_pending_for_key(key)
@@ -256,6 +283,39 @@ class SyncEngine:
                 summary["conflicts" if d.kind == "conflict" else "queued"] += 1
 
         STATE.update_game(self.snapshot(game, remote_by_type, file_status))
+
+    @staticmethod
+    def _check_emulator(d: Decision, folder: str, rf: Optional[dict]) -> Decision:
+        """A download written by a different emulator than the one this folder is for waits for approval: save
+        files from different emulators (mGBA vs VBA-M, two PS1 cores...) often don't load in each other."""
+        if not (d.auto and d.kind in ("pull_new", "pull_update") and rf):
+            return d
+        mine, theirs = emulator_for(folder), rf.get("emulator")
+        if mine and theirs and not same_emulator(mine, theirs):
+            return Decision(d.kind, auto=False,
+                            reason=f"RomM's copy was written by {theirs}, but this folder is set to {mine} (Platforms "
+                                   f"page). Saves from different emulators often don't load in each other; check "
+                                   f"before downloading.")
+        return d
+
+    def _check_cloud_sync_overlap(self, games: List[Game], remote) -> None:
+        """Games this app syncs whose saves RetroArch Cloud Sync also uploads to RomM: two sync paths for the same
+        files can make them bounce back and forth. Listed per folder on the dashboard (STATE.cloud_overlap)."""
+        ra = retroarch_devices(self.romm)
+        overlap: Dict[str, dict] = {}
+        if ra:
+            for g in games:
+                items = remote["save"].get(g.romm_id, []) + remote["state"].get(g.romm_id, [])
+                if any(it.get("origin_device_id") in ra for it in items):
+                    o = overlap.setdefault(g.platform, {"count": 0, "games": []})
+                    o["count"] += 1
+                    if len(o["games"]) < 5:
+                        o["games"].append(g.name)
+        STATE.cloud_overlap = overlap
+        if overlap:
+            logger.warning("RetroArch Cloud Sync also syncs saves for: " + ", ".join(
+                f"{k} ({v['count']} games)" for k, v in overlap.items()) + ". Pick one sync path per system on "
+                "the Platforms page.")
 
     def _build_action(self, d: Decision, game: Game, ft: str, name: str,
                       lf: Optional[LocalFile], rf: Optional[dict]) -> PendingAction:
@@ -400,6 +460,16 @@ class SyncEngine:
                 STATE.finish_action(action, "stale", str(e))
                 logger.warning(f"Skipped {action.file_name}: {e}")
                 return False, str(e)
+            except RommConflict:
+                # RomM's copy changed since this device last synced it: the next sync offers it as a conflict.
+                msg = ("RomM's copy changed since this app last synced it, so nothing was overwritten. It will be "
+                       "offered as a conflict for you to choose.")
+                STATE.clear_error(action.key)
+                STATE.finish_action(action, "stale", msg)
+                logger.warning(f"Skipped {action.file_name}: {msg}")
+                if STATE.request_sync_callback:
+                    STATE.request_sync_callback()
+                return False, msg
             except Exception as e:
                 msg = explain_error(e, action)
                 STATE.finish_action(action, "failed", msg)
@@ -430,9 +500,19 @@ class SyncEngine:
         screenshot = Path(action.local_screenshot) if action.local_screenshot else None
         if self.cfg.DRY_RUN:
             return f"[dry run] would upload {path.name}"
-        resp = self.romm.upload(kind, path, action.rom_id, action.romm_id, screenshot)
-        STATE.set_baseline(action.key, action.local_hash or md5_file(path), resp.get("updated_at"),
-                           resp.get("id"), resp.get("content_hash"))
+        from .romm_client import RommConflict
+        local_hash = action.local_hash or md5_file(path)
+        extra = dict(content_hash=local_hash, emulator=emulator_for(action.platform),
+                     overwrite=action.kind == "conflict")   # a conflict resolved as "keep mine" may overwrite
+        try:
+            resp = self.romm.upload(kind, path, action.rom_id, action.romm_id, screenshot, **extra)
+        except RommConflict:
+            if not action.romm_id:
+                raise
+            # RomM 5.5+: a save held by a save channel can't be replaced in place; upload it as the next version
+            logger.info(f"RomM keeps {path.name} as a fixed snapshot; uploading this as its next version.")
+            resp = self.romm.upload(kind, path, action.rom_id, None, screenshot, **extra)
+        STATE.set_baseline(action.key, local_hash, resp.get("updated_at"), resp.get("id"), resp.get("content_hash"))
         verb = "Updated" if action.romm_id else "Uploaded"
         return f"{verb} {action.file_type} {path.name} on RomM"
 
@@ -474,6 +554,7 @@ class SyncEngine:
 
         new_hash = hashlib.md5(content).hexdigest()
         STATE.set_baseline(action.key, new_hash, item.get("updated_at"), item.get("id"), item.get("content_hash"))
+        self.romm.confirm_downloaded(action.romm_api or KIND_API[action.file_type], item["id"], new_hash)
         return f"Downloaded {action.file_type} {dest.name} from RomM"
 
     def _expected_local_path(self, action: PendingAction) -> Path:

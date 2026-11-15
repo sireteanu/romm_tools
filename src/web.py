@@ -67,6 +67,16 @@ class FolderToggle(BaseModel):
     enabled: bool
 
 
+class FolderMode(BaseModel):
+    folder: str
+    mode: str
+
+
+class FolderEmulator(BaseModel):
+    folder: str
+    emulator: str = ""
+
+
 class LinkBody(BaseModel):
     platform: str
     game: str
@@ -289,8 +299,8 @@ def create_app(cfg) -> FastAPI:
         with STATE.lock:
             games = list(STATE.games.values())
         folders = []
-        from .settings import disabled_folders
-        disabled = disabled_folders()
+        from .settings import cloud_sync_folders, disabled_folders, folder_emulators
+        disabled, cloud, emulators = disabled_folders(), cloud_sync_folders(), folder_emulators()
         for folder in pf.local_platform_folders(_sync_dirs()):
             slug, how = pf.resolve(folder, mapping, lib_slugs, lib_fs, catalog.get("aliases", {}))
             fg = [g for g in games if g["platform"].lower() == folder.lower()]
@@ -302,6 +312,8 @@ def create_app(cfg) -> FastAPI:
                 "known_slug": bool(slug) and (slug in names),
                 "games": len(fg), "unmatched": sum(1 for g in fg if not g.get("matched")),
                 "enabled": folder.lower() not in disabled,
+                "mode": "cloud" if folder.lower() in cloud else ("off" if folder.lower() in disabled else "sync"),
+                "emulator": emulators.get(folder.lower()) or "",
             })
         platforms = [{"slug": slug, "name": name, "in_library": slug in lib_slugs,
                       "rom_count": lib_by_slug.get(slug, {}).get("rom_count", 0)}
@@ -359,12 +371,70 @@ def create_app(cfg) -> FastAPI:
         from . import settings as st
         if body.folder.lower() not in {f.lower() for f in pf.local_platform_folders(_sync_dirs())}:
             raise HTTPException(400, f"Unknown folder: {body.folder}")
-        st.set_folder_enabled(body.folder, body.enabled)
-        st.invalidate_cache()
+        st.set_folder_mode(body.folder, "sync" if body.enabled else "off")
         STATE.add_activity("INFO", f"Sync {'switched on' if body.enabled else 'switched off'} for '{body.folder}'")
         if body.enabled and STATE.request_sync_callback:
             STATE.request_sync_callback()
         return _platforms_payload()
+
+    @app.put("/api/platforms/mode")
+    def platforms_mode(body: FolderMode):
+        """sync = this app syncs the folder; off = left alone; cloud = RetroArch Cloud Sync syncs it with RomM."""
+        from . import settings as st
+        if body.folder.lower() not in {f.lower() for f in pf.local_platform_folders(_sync_dirs())}:
+            raise HTTPException(400, f"Unknown folder: {body.folder}")
+        try:
+            st.set_folder_mode(body.folder, body.mode)
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        what = {"sync": "synced by romm_tools", "off": "not synced",
+                "cloud": "left to RetroArch Cloud Sync"}[body.mode]
+        STATE.add_activity("INFO", f"'{body.folder}' is now {what}")
+        STATE.cloud_overlap.pop(body.folder, None) if body.mode != "sync" else None
+        if body.mode == "sync" and STATE.request_sync_callback:
+            STATE.request_sync_callback()
+        return _platforms_payload()
+
+    @app.put("/api/platforms/emulator")
+    def platforms_emulator(body: FolderEmulator):
+        """The emulator that writes this folder's saves: sent to RomM with uploads, and a download written by a
+        different emulator waits for approval."""
+        from . import settings as st
+        name = body.emulator.strip()
+        if len(name) > 50:
+            raise HTTPException(400, "An emulator name is at most 50 characters.")
+        st.set_folder_emulator(body.folder, name or None)
+        return _platforms_payload()
+
+    # region RomM device and pairing (RomM 5.4+)
+    @app.get("/api/romm/device")
+    def romm_device():
+        from . import devices
+        client = cfg.ROMM_CREDENTIALS
+        return {"device_id": client.device_id, "device_name": devices.device_name(), "romm_version": client.version(),
+                "pairing": devices.pairing_status(), "device_sync": getattr(cfg, "DEVICE_SYNC", "auto"),
+                "auth": "paired" if devices.has_paired_token() else client.auth_type}
+
+    @app.post("/api/romm/pair/start")
+    def romm_pair_start():
+        from . import devices
+        from .version import get_version
+        if not cfg.ROMM_CREDENTIALS.url:
+            raise HTTPException(400, "Set the RomM address (ROMM_URL) first.")
+        try:
+            return devices.start_pairing(cfg.ROMM_CREDENTIALS, get_version())
+        except Exception as e:
+            raise HTTPException(502, str(e))
+
+    @app.post("/api/romm/pair/cancel")
+    def romm_pair_cancel():
+        from . import devices
+        return devices.cancel_pairing()
+
+    @app.post("/api/romm/pair/forget")
+    def romm_pair_forget():
+        from . import devices
+        return devices.forget(cfg.ROMM_CREDENTIALS, getattr(cfg, "ENV_LOGIN", ("http", "")))
 
     # region syncthing
     @app.get("/api/syncthing")

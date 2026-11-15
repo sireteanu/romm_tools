@@ -78,6 +78,7 @@ def inventory() -> List[dict]:
                                                "screenshot": str(lf.screenshot) if lf.screenshot else None},
             "romm": None if rf is None else {"id": rf.get("id"), "size": rf.get("file_size_bytes"),
                                              "updated_at": rf.get("updated_at"), "versions": max(len(group), 1),
+                                             "emulator": rf.get("emulator"),
                                              "screenshot": shot.get("download_path") if isinstance(shot, dict) else None},
             "can_download": rf is not None and lf is None and local_dest is not None and not local_dest.exists(),
             "can_upload": lf is not None and rf is None and bool(rom_id),
