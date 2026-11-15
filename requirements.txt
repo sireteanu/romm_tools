@@ -6,6 +6,3 @@ loguru>=0.7.0
 pyyaml>=6.0
 fastapi>=0.110
 uvicorn>=0.29
-# ROM folders (from rom-mapper): its Flask app runs inside the FastAPI server through a2wsgi
-flask>=3.0
-a2wsgi>=1.10

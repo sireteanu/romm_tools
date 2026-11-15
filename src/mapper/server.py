@@ -8,12 +8,11 @@ RomM (romm.py): decides which download folder is which RomM platform and generat
 for RomM's compose file plus a config.yml. Settings and folder choices live in romm-mapper.json in
 the config folder - the same file Rom Sync used.
 
-This is a Flask app; romm_tools mounts it under /roms/ in the main (FastAPI) web server
+This is a FastAPI app; romm_tools mounts it under /roms/ in the main web server
 (src/web.py), so it shares the port, the optional password and the log with save sync.
 """
 
 import csv
-import gzip
 import hashlib
 import io
 import json
@@ -25,7 +24,12 @@ import time
 from collections import deque
 from datetime import datetime, timezone
 
-from flask import Flask, jsonify, request, send_from_directory
+from typing import Any
+
+from fastapi import Body, FastAPI, Request
+from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from loguru import logger
 
 from . import links, romm
@@ -66,7 +70,16 @@ UNITS = {"minutes": 60, "hours": 3600, "days": 86400}
 MIN_INTERVAL = {"scan": 60, "sync": 300}
 MAX_INTERVAL = 365 * 86400
 
-app = Flask(__name__, static_folder="static", static_url_path="/static")
+STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
+app = FastAPI(title="romm_tools ROM folders", docs_url=None, redoc_url=None, openapi_url=None)
+# Large JSON answers (the RomM list of a big share is several MB) are gzipped when the browser accepts it.
+app.add_middleware(GZipMiddleware, minimum_size=4096, compresslevel=5)
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+
+def jsonify(obj, status_code: int = 200):
+    """JSON answer without FastAPI's slow re-encoding of big plain dicts."""
+    return JSONResponse(obj, status_code=status_code)
 
 csv_lock = threading.RLock()      # guards reads/writes of the mapping and state file
 romm_lock = threading.RLock()     # guards romm-mapper.json and the platform links
@@ -758,22 +771,9 @@ def scheduler_loop():
 
 # ---------------------------------------------------------------- routes
 
-@app.after_request
-def compress(resp):
-    """gzip large JSON answers when the browser accepts it: the RomM list of a big share is
-    several MB of JSON and shrinks to a fraction of that."""
-    if (resp.status_code == 200 and resp.mimetype == "application/json" and not resp.direct_passthrough
-            and "gzip" in request.headers.get("Accept-Encoding", "")
-            and "Content-Encoding" not in resp.headers and (resp.content_length or 0) > 4096):
-        resp.set_data(gzip.compress(resp.get_data(), compresslevel=5))
-        resp.headers["Content-Encoding"] = "gzip"
-        resp.headers.add("Vary", "Accept-Encoding")
-    return resp
-
-
 @app.get("/")
 def index():
-    return send_from_directory(app.static_folder, "index.html")
+    return FileResponse(os.path.join(STATIC_DIR, "index.html"))
 
 
 @app.get("/api/state")
@@ -782,8 +782,8 @@ def api_state():
 
 
 @app.put("/api/mapping")
-def api_save():
-    body = request.get_json(force=True)
+def api_save(body: Any = Body(None)):
+    body = body
     m = {
         "key_header": "Folder",
         "frontends": body.get("frontends") or [],
@@ -791,14 +791,14 @@ def api_save():
     }
     errors = validate_mapping(m)
     if errors:
-        return jsonify({"error": "Validation failed", "details": errors}), 400
+        return jsonify({"error": "Validation failed", "details": errors}, 400)
 
     with csv_lock:
         raw = read_raw()
         current = parse_mapping(raw)
         if body.get("version") != version_of(raw) and not body.get("force"):
             return jsonify({"error": "conflict",
-                            "details": ["The mapping changed since you loaded it (e.g. a scheduled scan added folders)."]}), 409
+                            "details": ["The mapping changed since you loaded it (e.g. a scheduled scan added folders)."]}, 409)
         m["key_header"] = current["key_header"]
         version = write_mapping(m)
     log(f"Mapping saved: {len(m['rows'])} folders × {len(m['frontends'])} frontends")
@@ -815,7 +815,7 @@ def api_scan():
 @app.post("/api/sync")
 def api_sync():
     if not start_sync_async("manual"):
-        return jsonify({"error": "A resync is already running."}), 409
+        return jsonify({"error": "A resync is already running."}, 409)
     return jsonify({"ok": True})
 
 
@@ -825,8 +825,8 @@ def api_sync_status():
 
 
 @app.put("/api/settings")
-def api_settings():
-    body = request.get_json(force=True)
+def api_settings(body: Any = Body(None)):
+    body = body
     s = dict(DEFAULT_SETTINGS)
     s["sources"] = load_state()["settings"].get("sources") or []
     body = convert_schedule(dict(body))          # older pages send the old field names
@@ -836,16 +836,16 @@ def api_settings():
     for kind, what in (("scan", "Scan"), ("sync", "Resync")):
         unit = body.get(f"{kind}_unit")
         if unit not in UNITS:
-            return jsonify({"error": f"{what}: the unit must be minutes, hours or days."}), 400
+            return jsonify({"error": f"{what}: the unit must be minutes, hours or days."}, 400)
         try:
             every = int(body.get(f"{kind}_every"))
         except (TypeError, ValueError):
-            return jsonify({"error": f"{what}: the interval must be a whole number."}), 400
+            return jsonify({"error": f"{what}: the interval must be a whole number."}, 400)
         seconds = every * UNITS[unit]
         if seconds < MIN_INTERVAL[kind]:
-            return jsonify({"error": f"{what}: the shortest interval is {MIN_INTERVAL[kind] // 60} minute(s)."}), 400
+            return jsonify({"error": f"{what}: the shortest interval is {MIN_INTERVAL[kind] // 60} minute(s)."}, 400)
         if seconds > MAX_INTERVAL:
-            return jsonify({"error": f"{what}: the longest interval is 365 days."}), 400
+            return jsonify({"error": f"{what}: the longest interval is 365 days."}, 400)
         s[f"{kind}_every"], s[f"{kind}_unit"] = every, unit
     update_state(settings=s)
     log("Schedule settings updated")
@@ -853,8 +853,8 @@ def api_settings():
 
 
 @app.get("/api/romm")
-def api_romm():
-    return jsonify(romm_view(fresh=request.args.get("fresh") == "1"))
+def api_romm(fresh: str = ""):
+    return jsonify(romm_view(fresh=fresh == "1"))
 
 
 @app.get("/api/romm/progress")
@@ -878,8 +878,8 @@ def api_romm_platforms():
 
 
 @app.put("/api/romm/options")
-def api_romm_options():
-    body = request.get_json(force=True) or {}
+def api_romm_options(body: Any = Body(None)):
+    body = body or {}
     with romm_lock:
         cur = romm_saved()
         if "sources" in body:
@@ -889,7 +889,7 @@ def api_romm_options():
                 if not v:
                     continue
                 if not v.startswith("/"):
-                    return jsonify({"error": f"{v}: a download folder must be a full path starting with /"}), 400
+                    return jsonify({"error": f"{v}: a download folder must be a full path starting with /"}, 400)
                 if v not in sources:
                     sources.append(v)
             cur["sources"] = sources
@@ -901,7 +901,7 @@ def api_romm_options():
                 except (TypeError, ValueError):
                     n = -1
                 if not 0 <= n <= 6:
-                    return jsonify({"error": "Levels must be All or a number from 1 to 6."}), 400
+                    return jsonify({"error": "Levels must be All or a number from 1 to 6."}, 400)
                 if n:
                     depths[str(k).strip().rstrip("/")] = n
             cur["depths"] = depths
@@ -914,7 +914,7 @@ def api_romm_options():
                 if not n:
                     continue
                 if "/" in n or "\\" in n:
-                    return jsonify({"error": f"{n}: give folder names (like media), not paths."}), 400
+                    return jsonify({"error": f"{n}: give folder names (like media), not paths."}, 400)
                 if n.casefold() not in {x.casefold() for x in names}:
                     names.append(n)
             cur["skip_names"] = names
@@ -926,22 +926,22 @@ def api_romm_options():
 
 
 @app.post("/api/romm/import")
-def api_romm_import():
+async def api_romm_import(request: Request):
     """One-time import of the old Rom_Mapping_RomM.csv: "Folder,romm" rows, a folder (inside a
     download folder) and its RomM platform. Rows without a platform are left alone; a folder named
     like its platform needs no choice. Saved straight away; the answer says what happened."""
-    text = (request.get_data(as_text=True) or "").lstrip("\ufeff")
+    text = ((await request.body()).decode("utf-8", "replace") or "").lstrip("\ufeff")
     try:
         lines = [r for r in csv.reader(io.StringIO(text)) if r and any(c.strip() for c in r)]
     except csv.Error as e:
-        return jsonify({"error": f"Not a readable CSV file: {e}"}), 400
+        return jsonify({"error": f"Not a readable CSV file: {e}"}, 400)
     if not lines or len(lines[0]) < 2:
-        return jsonify({"error": "Expected a header row (Folder,romm) and one row per folder."}), 400
+        return jsonify({"error": "Expected a header row (Folder,romm) and one row per folder."}, 400)
     with romm_lock:
         cur = romm_saved()
         sources, links_dir, _depths, _skip, _key = romm_setup(cur)
         if not sources:
-            return jsonify({"error": "Add your download folder first - the CSV's folders are looked up in it."}), 400
+            return jsonify({"error": "Add your download folder first - the CSV's folders are looked up in it."}, 400)
         roots = [os.path.relpath(p, links_dir) for p in sources]
         mapping = dict(cur.get("map") or {})
         report = {"imported": 0, "already": 0, "empty": 0, "excluded": 0, "missing": [], "custom": [], "invalid": []}
@@ -992,13 +992,13 @@ def api_romm_import():
 
 
 @app.put("/api/romm/map")
-def api_romm_map():
-    body = request.get_json(force=True) or {}
+def api_romm_map(body: Any = Body(None)):
+    body = body or {}
     path = str(body.get("path") or "")
     try:
         action = romm.check_action(str(body.get("action") or ""))
     except ValueError as e:
-        return jsonify({"error": str(e)}), 400
+        return jsonify({"error": str(e)}, 400)
     with romm_lock:
         cur = romm_saved()
         mapping = dict(cur.get("map") or {})
@@ -1017,14 +1017,14 @@ def api_romm_links():
     try:
         res, text = romm_remove_old_links("manual")
     except RuntimeError as e:
-        return jsonify({"error": str(e)}), 400
+        return jsonify({"error": str(e)}, 400)
     return jsonify({**romm_view(reuse=True), "applied": {**res, "text": text}})
 
 
 @app.put("/api/sources")
-def api_sources():
+def api_sources(body: Any = Body(None)):
     """Save the grid's source folders: [{"path", "depth", "label"?}] in order."""
-    body = request.get_json(force=True) or {}
+    body = body or {}
     current = {x["path"]: x for x in get_sources()}
     out, labels = [], set()
     for x in body.get("sources") or []:
@@ -1032,13 +1032,13 @@ def api_sources():
         if not path:
             continue
         if not path.startswith("/"):
-            return jsonify({"error": f"{path}: a source folder must be a full path starting with /"}), 400
+            return jsonify({"error": f"{path}: a source folder must be a full path starting with /"}, 400)
         if any(o["path"] == path for o in out):
             continue
         try:
             depth = max(1, min(6, int(x.get("depth") or 1)))
         except (TypeError, ValueError):
-            return jsonify({"error": "Depth must be a number from 1 to 6."}), 400
+            return jsonify({"error": "Depth must be a number from 1 to 6."}, 400)
         # a folder keeps its label (the mapping refers to it); new ones get their folder name
         label = (current.get(path) or {}).get("label") or clean_label(os.path.basename(path))
         label = unique_label(label, labels)
@@ -1048,7 +1048,7 @@ def api_sources():
         for b in out:
             if a is not b and (b["path"] + "/").startswith(a["path"] + "/"):
                 return jsonify({"error": f"{b['path']} is inside {a['path']} - raise the depth of "
-                                         f"{a['path']} instead of listing both."}), 400
+                                         f"{a['path']} instead of listing both."}, 400)
     with csv_lock:
         state = load_state()
         old = get_sources(state["settings"])
@@ -1070,33 +1070,6 @@ def api_activity():
     return jsonify(list(activity))
 
 
-# ---------------------------------------------------------------- game names (gamelist.xml -> RomM)
-# The Game names page: RomM's name for each game next to the <name> in the frontend's gamelist.xml,
-# and a way to give RomM the gamelist's name (or one you type). See gamelists.py.
-
-NAMES_FILE = os.path.join(CONFIG_DIR, "game-names.json")
-NAMES_HISTORY = 20             # batches of renames kept for Undo
-NAMES_MAX_BATCH = 2000
-names_lock = threading.Lock()          # game-names.json
-names_job_lock = threading.Lock()      # held while gamelists and RomM are read
-_names = {"result": None, "at": None, "error": None, "step": "", "done": 0, "total": None}
-
-
-def names_saved():
-    try:
-        with open(NAMES_FILE, encoding="utf-8") as f:
-            data = json.load(f)
-    except (OSError, ValueError):
-        data = {}
-    return {"folders": [str(x) for x in data.get("folders") or []],
-            "ignored": {str(k): str(v) for k, v in (data.get("ignored") or {}).items()},
-            "history": list(data.get("history") or [])[-NAMES_HISTORY:]}
-
-
-def names_save(data):
-    atomic_write(NAMES_FILE, json.dumps(data, indent=2, ensure_ascii=False) + "\n")
-
-
 def romm_client():
     """RomM's address and login from the container settings (ROMM_URL ...), shared with save sync.
     -> RommUser, or None when no RomM address is set."""
@@ -1106,249 +1079,11 @@ def romm_client():
     return creds if creds.url else None
 
 
-def names_mapped_folders():
-    """[(slug, folder)] - every platform folder on the RomM library page (the folder RomM reads as
-    roms/<slug>). Uses the folder list the RomM library page already read when there is one."""
-    saved = romm_saved()
-    if not saved.get("sources"):
-        return []
-    m, _saved, error = romm_mapping(reuse=True)
-    if m is None:
-        return []
-    return [(p["slug"], os.path.join(m.base, p["mount"]) if m.base else p["mount"]) for p in m.platforms]
 
-
-def names_read():
-    """Read RomM's platforms, the gamelists, then the ROMs of the platforms that have one."""
-    from . import gamelists
-    client = romm_client()
-    if client is None:
-        raise RuntimeError("No RomM address is set (ROMM_URL in the container settings).")
-    _names.update(step="Reading RomM's platforms", done=0, total=None)
-    platforms = client.list_platforms()
-    _names.update(step="Looking for gamelist.xml files")
-    saved = names_saved()
-    folders = gamelists.platform_folders(names_mapped_folders(), saved["folders"], platforms)
-    skip = romm.options_from({"romm": romm_saved()})["skip_names"]
-    found = gamelists.collect(folders, skip)
-    have = {pid for pid, files in found.items() if files}
-    targets = [(p["id"], p.get("display_name") or p.get("name") or p.get("slug")) for p in platforms if p["id"] in have]
-    roms = []
-    if targets:
-        keep = ("id", "name", "fs_name", "fs_path", "platform_id")
-
-        def trim(page):
-            return [{k: r.get(k) for k in keep} for r in page]
-
-        def progress(label, fetched, total):
-            _names.update(step=f"Reading RomM's games: {label}", done=fetched, total=total)
-
-        roms = client.get_full_library(targets, trim=trim, on_progress=progress)["items"]
-    result = gamelists.compare(platforms, found, roms, names_saved()["ignored"])
-    s = result["summary"]
-    log(f"Game names: {s['gamelists']} gamelist(s), {s['different']} name(s) differ from RomM")
-    return result
-
-
-def start_names_read():
-    """Read in a background thread (a big library takes a while); the page follows /api/names/progress."""
-    if not names_job_lock.acquire(blocking=False):
-        return False
-    _names.update(error=None, step="Starting", done=0, total=None)
-
-    def worker():
-        try:
-            _names["result"] = names_read()
-            _names["at"] = now_iso()
-        except Exception as e:  # noqa: BLE001 - shown on the page
-            _names["error"] = str(e)
-            log(f"Game names: reading failed: {e}")
-        finally:
-            names_job_lock.release()
-
-    if ROMM_BACKGROUND:
-        threading.Thread(target=worker, name="game-names-read", daemon=True).start()
-    else:
-        worker()
-    return True
-
-
-def names_progress():
-    return {"running": names_job_lock.locked(), "step": _names["step"], "done": _names["done"],
-            "total": _names["total"]}
-
-
-def names_view():
-    saved = names_saved()
-    last = saved["history"][-1] if saved["history"] else None
-    base = {"folders": saved["folders"], "error": _names["error"], "at": _names["at"],
-            "romm": bool(romm_client()), "mapped": len(romm_saved().get("sources") or []),
-            "undo": {"time": last["time"], "count": len(last["changes"])} if last else None}
-    if names_job_lock.locked():
-        return {**base, "reading": names_progress()}
-    res = _names["result"] or {"rows": [], "gamelists": [], "no_gamelist": [], "summary": {}}
-    ignored = saved["ignored"]
-    rows = [{**r, "ignored": ignored.get(str(r["id"])) == r["gamelist_name"]} for r in res["rows"]]
-    summary = dict(res["summary"])
-    if rows or summary:
-        summary["ignored"] = sum(r["ignored"] for r in rows)
-        summary["different"] = len(rows) - summary["ignored"]
-    return {**base, "rows": rows, "gamelists": res["gamelists"], "no_gamelist": res.get("no_gamelist", []),
-            "summary": summary}
-
-
-@app.get("/api/names")
-def api_names():
-    if request.args.get("fresh") == "1" or (_names["result"] is None and _names["error"] is None):
-        if romm_client() is not None:
-            start_names_read()
-    return jsonify(names_view())
-
-
-@app.get("/api/names/progress")
-def api_names_progress():
-    return jsonify(names_progress())
-
-
-@app.put("/api/names/options")
-def api_names_options():
-    body = request.get_json(force=True) or {}
-    raw = body.get("folders") or []
-    items = raw.splitlines() if isinstance(raw, str) else list(raw)
-    folders = []
-    for v in items:
-        v = str(v or "").strip().rstrip("/")
-        if not v:
-            continue
-        if not v.startswith("/"):
-            return jsonify({"error": f"{v}: a gamelist folder must be a full path starting with /"}), 400
-        if v not in folders:
-            folders.append(v)
-    with names_lock:
-        data = names_saved()
-        data["folders"] = folders
-        names_save(data)
-    log("Game names: extra gamelist folders: " + (", ".join(folders) or "none"))
-    start_names_read()
-    return jsonify(names_view())
-
-
-@app.put("/api/names/ignore")
-def api_names_ignore():
-    """Keep RomM's name for these games: they're hidden until their gamelist name changes."""
-    body = request.get_json(force=True) or {}
-    rows = {str(r["id"]): r for r in (_names["result"] or {}).get("rows", [])}
-    with names_lock:
-        data = names_saved()
-        for i in body.get("ids") or []:
-            r = rows.get(str(i))
-            if r is None:
-                continue
-            if body.get("ignore", True):
-                data["ignored"][str(i)] = r["gamelist_name"]
-            else:
-                data["ignored"].pop(str(i), None)
-        names_save(data)
-    return jsonify(names_view())
-
-
-def names_rename(changes, client):
-    """Rename in RomM -> (done [{id, old, new, platform, file}], failed [{id, error}])."""
-    done, failed = [], []
-    for c in changes:
-        try:
-            got = client.rename_rom(c["id"], c["new"])
-            done.append({**c, "new": got.get("name") or c["new"]})
-        except Exception as e:  # noqa: BLE001 - reported per game
-            failed.append({"id": c["id"], "error": str(e)})
-    return done, failed
-
-
-@app.post("/api/names/apply")
-def api_names_apply():
-    """Give these games a new name in RomM: {"changes": [{"id", "name"}]} - the gamelist's name or
-    one you typed. Only games on the list can be renamed (RomM's current name is known for Undo)."""
-    from . import gamelists
-    if names_job_lock.locked():
-        return jsonify({"error": "Still reading the gamelists and RomM - try again in a moment."}), 409
-    client = romm_client()
-    if client is None:
-        return jsonify({"error": "No RomM address is set (ROMM_URL in the container settings)."}), 400
-    body = request.get_json(force=True) or {}
-    asked = body.get("changes") or []
-    if not isinstance(asked, list) or not asked:
-        return jsonify({"error": "Nothing to rename."}), 400
-    if len(asked) > NAMES_MAX_BATCH:
-        return jsonify({"error": f"At most {NAMES_MAX_BATCH} games at once."}), 400
-    rows = {r["id"]: r for r in (_names["result"] or {}).get("rows", [])}
-    changes, failed = [], []
-    for c in asked:
-        try:
-            rid = int(c.get("id"))
-            new = gamelists.check_name(c.get("name"))
-        except (TypeError, ValueError, AttributeError) as e:
-            failed.append({"id": c.get("id") if isinstance(c, dict) else None, "error": str(e)})
-            continue
-        r = rows.get(rid)
-        if r is None:
-            failed.append({"id": rid, "error": "not on the list any more - refresh"})
-            continue
-        if new != r["romm_name"]:
-            changes.append({"id": rid, "old": r["romm_name"], "new": new, "platform": r["platform"],
-                            "file": r["file"]})
-    done, bad = names_rename(changes, client)
-    failed += bad
-    if done:
-        with names_lock:
-            data = names_saved()
-            data["history"] = (data["history"] + [{"time": now_iso(), "changes": done}])[-NAMES_HISTORY:]
-            names_save(data)
-        res = _names["result"]
-        by_id = {d["id"]: d["new"] for d in done}
-        keep = []
-        for r in res["rows"]:
-            if r["id"] in by_id:
-                if by_id[r["id"]] == r["gamelist_name"]:
-                    res["summary"]["same"] = res["summary"].get("same", 0) + 1
-                    continue
-                r = {**r, "romm_name": by_id[r["id"]], "case_only": by_id[r["id"]].casefold() == r["gamelist_name"].casefold()}
-            keep.append(r)
-        res["rows"] = keep
-        for d in done:
-            logger.info(f"[ROM folders] Game names: {d['platform']} / {d['file']}: {d['old']!r} -> {d['new']!r}")
-        log(f"Game names: renamed {len(done)} game(s) in RomM" + (f", {len(failed)} failed" if failed else ""))
-    elif failed:
-        log(f"Game names: {len(failed)} rename(s) failed: {failed[0]['error']}")
-    return jsonify({**names_view(), "done": len(done), "failed": failed})
-
-
-@app.post("/api/names/undo")
-def api_names_undo():
-    """Put back the names the last batch of renames replaced, then read everything again."""
-    if names_job_lock.locked():
-        return jsonify({"error": "Still reading the gamelists and RomM - try again in a moment."}), 409
-    client = romm_client()
-    if client is None:
-        return jsonify({"error": "No RomM address is set (ROMM_URL in the container settings)."}), 400
-    with names_lock:
-        data = names_saved()
-        if not data["history"]:
-            return jsonify({"error": "Nothing to undo."}), 400
-        last = data["history"][-1]
-    back = [{**c, "old": c["new"], "new": c["old"]} for c in last["changes"] if c.get("old")]
-    done, failed = names_rename(back, client)
-    with names_lock:
-        data = names_saved()
-        if data["history"] and data["history"][-1]["time"] == last["time"]:
-            if failed:   # keep the ones that couldn't be put back, so Undo can try them again
-                left = {f["id"] for f in failed}
-                data["history"][-1]["changes"] = [c for c in last["changes"] if c["id"] in left]
-            else:
-                data["history"].pop()
-            names_save(data)
-    log(f"Game names: undo put back {len(done)} name(s)" + (f", {len(failed)} failed" if failed else ""))
-    start_names_read()
-    return jsonify({**names_view(), "done": len(done), "failed": failed})
+# Game names (gamelist.xml -> RomM) live in names.py
+import importlib  # noqa: E402
+_names_module = importlib.import_module(".names", __package__)  # a fresh copy whenever this module is re-imported
+app.include_router(_names_module.router)
 
 
 def start_background():

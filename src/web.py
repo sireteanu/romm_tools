@@ -3,7 +3,7 @@ amn-96, MIT License).
 
 One server on one port for both parts of the app:
     /            the save sync dashboard (single page, src/web_static/index.html)
-    /roms/       ROM folders: Frontend links + RomM library (src/mapper, a Flask app mounted here)
+    /roms/       ROM folders: Frontend links + RomM library (src/mapper, a FastAPI app mounted here)
     GET  /api/features               which parts are on, and why save sync isn't running if it's off
 
 Save sync's JSON API:
@@ -637,16 +637,15 @@ def create_app(cfg) -> FastAPI:
         raise HTTPException(404)
     # endregion
 
-    # region ROM folders (rom-mapper): its Flask app, mounted under /roms/
+    # region ROM folders (rom-mapper): its own FastAPI app, mounted under /roms/
     if features["rom_folders"]:
-        from a2wsgi import WSGIMiddleware
         from .mapper.server import app as rom_folders_app
 
         @app.get("/roms", include_in_schema=False)
         def rom_folders_slash():
             return RedirectResponse("roms/")   # its page uses relative api/... addresses
 
-        app.mount("/roms", WSGIMiddleware(rom_folders_app))
+        app.mount("/roms", rom_folders_app)
     # endregion
 
     return app

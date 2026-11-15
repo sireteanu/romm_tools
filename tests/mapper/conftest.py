@@ -49,15 +49,44 @@ class Env:
         """Import the app with this installation's settings -> (server module, test client)."""
         for k, v in {**self.env, **env}.items():
             self.monkeypatch.setenv(k, v)
-        for mod in ("src.mapper.server", "src.mapper.romm", "src.mapper.links"):
+        for mod in ("src.mapper.server", "src.mapper.names", "src.mapper.romm", "src.mapper.links"):
             sys.modules.pop(mod, None)
         server = importlib.import_module("src.mapper.server")
         server.ROMM_BACKGROUND = False      # answer with the RomM data straight away (see test_romm)
-        return server, server.app.test_client()
+        return server, FlaskLikeClient(server.app)
 
     def link(self, *parts):
         p = os.path.join(self.dest, *parts)
         return os.readlink(p) if os.path.islink(p) else None
+
+
+class FlaskLikeClient:
+    """FastAPI's TestClient with Flask's `get_json()` on responses, so the tests read the same as before."""
+
+    def __init__(self, app):
+        from fastapi.testclient import TestClient
+        self._c = TestClient(app)
+
+    def _wrap(self, r):
+        r.get_json = r.json
+        r.get_data = lambda as_text=False: r.text if as_text else r.content
+        return r
+
+    def get(self, url, **kw):
+        return self._wrap(self._c.get(url, **kw))
+
+    def post(self, url, data=None, content_type=None, **kw):
+        if data is not None:
+            kw["content"] = data
+        if content_type:
+            kw["headers"] = {**kw.get("headers", {}), "content-type": content_type}
+        return self._wrap(self._c.post(url, **kw))
+
+    def put(self, url, **kw):
+        return self._wrap(self._c.put(url, **kw))
+
+    def delete(self, url, **kw):
+        return self._wrap(self._c.delete(url, **kw))
 
 
 @pytest.fixture

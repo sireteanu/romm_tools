@@ -273,14 +273,13 @@ def test_the_page_never_waits_on_the_disk(env, monkeypatch):
 
 
 def test_big_answers_are_compressed(env):
-    import gzip
     server, c = env.start()
-    plain = c.get("/api/romm/platforms")
+    plain = c.get("/api/romm/platforms", headers={"Accept-Encoding": "identity"})
     zipped = c.get("/api/romm/platforms", headers={"Accept-Encoding": "gzip, deflate"})
     assert "Content-Encoding" not in plain.headers
     assert zipped.headers["Content-Encoding"] == "gzip" and "Accept-Encoding" in zipped.headers["Vary"]
-    assert json.loads(gzip.decompress(zipped.data)) == plain.get_json()
-    assert len(zipped.data) < len(plain.data) / 3
+    assert zipped.get_json() == plain.get_json()          # the test client unzips it
+    assert int(zipped.headers["content-length"]) < len(plain.content) / 3
 
 
 def collection(env):

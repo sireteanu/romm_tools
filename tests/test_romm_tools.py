@@ -34,7 +34,7 @@ def client(tmp_path, monkeypatch):
         monkeypatch.setenv(k, v)
 
     def make(**features):
-        for mod in ("src.mapper.server", "src.mapper.romm", "src.mapper.links"):
+        for mod in ("src.mapper.server", "src.mapper.names", "src.mapper.romm", "src.mapper.links"):
             sys.modules.pop(mod, None)
         web = importlib.import_module("src.web")
         return TestClient(web.create_app(make_cfg(**features)))
