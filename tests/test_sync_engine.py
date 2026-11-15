@@ -504,3 +504,46 @@ def test_manual_link_wins(monkeypatch, tmp_path):
     g = Game(name="My Zelda Save", path=tmp_path, platform="nds")
     L.match_to_romm([g], Srv())
     assert g.is_matched and g.romm_id == 9 and g.match_how == "link"
+
+
+# --- emulator per folder / RetroArch Cloud Sync -----------------------------
+def test_download_from_another_emulator_waits_for_approval(monkeypatch):
+    from src import sync_engine as se
+    monkeypatch.setattr(se, "emulator_for", lambda folder: "mgba" if folder == "gba" else None)
+    auto = se.Decision("pull_update", auto=True)
+    held = se.SyncEngine._check_emulator(auto, "gba", {"emulator": "vba-m"})
+    assert held.kind == "pull_update" and not held.auto and "vba-m" in held.reason
+    assert se.SyncEngine._check_emulator(auto, "gba", {"emulator": "mGBA_libretro"}).auto      # same emulator
+    assert se.SyncEngine._check_emulator(auto, "gba", {"emulator": None}).auto                  # unknown: no fuss
+    assert se.SyncEngine._check_emulator(auto, "snes", {"emulator": "snes9x"}).auto             # folder not set
+
+
+def test_cloud_sync_overlap_is_reported_per_folder(monkeypatch):
+    from types import SimpleNamespace
+    from src import sync_engine as se
+    from src.sync_state import STATE
+    monkeypatch.setattr(se, "retroarch_devices", lambda client: {"dev-ra"})
+    eng = se.SyncEngine.__new__(se.SyncEngine)
+    eng.romm = None
+    games = [SimpleNamespace(name="Lantern Keep", platform="snes", romm_id=1),
+             SimpleNamespace(name="Neon Drift", platform="gba", romm_id=2)]
+    remote = {"save": {1: [{"id": 9, "origin_device_id": "dev-ra"}], 2: [{"id": 8, "origin_device_id": "dev-1"}]},
+              "state": {}}
+    eng._check_cloud_sync_overlap(games, remote)
+    assert STATE.cloud_overlap == {"snes": {"count": 1, "games": ["Lantern Keep"]}}
+    STATE.cloud_overlap = {}
+
+
+def test_folder_modes(tmp_path, monkeypatch):
+    monkeypatch.setenv("DATA_DIR", str(tmp_path))
+    from src import settings
+    settings.set_folder_mode("snes", "cloud")
+    settings.set_folder_mode("gba", "off")
+    settings.invalidate_cache()
+    assert not settings.sync_enabled("snes") and not settings.sync_enabled("gba") and settings.sync_enabled("n64")
+    assert settings.cloud_sync_folders() == {"snes"}
+    settings.set_folder_mode("snes", "sync")
+    settings.invalidate_cache()
+    assert settings.sync_enabled("snes")
+    settings.set_folder_emulator("gba", "mgba")
+    assert settings.emulator_for("GBA") == "mgba"

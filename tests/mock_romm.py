@@ -23,7 +23,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Dict, List, Optional
 
 from fastapi import FastAPI, HTTPException, Query, Request
-from fastapi.responses import Response
+from fastapi.responses import JSONResponse, Response
 
 PLATFORMS = {
     9: ("arcade", "Arcade", (150, 150, 160)),
@@ -54,6 +54,14 @@ class Store:
         self.page_delay = 0.0
         self.fail_uploads = False
         self.rom_requests = 0
+        # RomM 5.4+ extras
+        self.devices: Dict[str, dict] = {}
+        self.device_sync: Dict[tuple, str] = {}     # (device_id, save_id) -> updated_at the device last held
+        self.held: set = set()                      # save ids a RomM 5.5 snapshot holds (PUT answers 409)
+        self.pairings: Dict[str, dict] = {}         # device_code -> {user_code, status}
+        self.cards: List[dict] = []
+        self.card_versions: List[dict] = []
+        self.exports: List[list] = []
 
     def add_rom(self, rom_id: int, platform_id: int, fs_name: str, name: str):
         slug, display, _ = PLATFORMS[platform_id]
@@ -205,6 +213,145 @@ def debug_stats():
     return {"rom_requests": S.rom_requests}
 
 
+# ---------- RomM 5.4+ : devices, pairing, memory cards, export, supported platforms ----------
+@app.post("/api/devices")
+async def register_device(request: Request):
+    body = await request.json()
+    for d in S.devices.values():
+        if body.get("allow_existing", True) and d["hostname"] == body.get("hostname") and d["client"] == body.get("client"):
+            return {"device_id": d["id"], "name": d["name"], "created_at": d["created_at"]}
+    did = f"dev-{len(S.devices) + 1}"
+    S.devices[did] = {"id": did, "user_id": 1, "name": body.get("name"), "client": body.get("client"),
+                      "client_version": body.get("client_version"), "hostname": body.get("hostname"),
+                      "platform": body.get("platform"), "sync_mode": "api", "sync_enabled": True,
+                      "last_seen": now().isoformat(), "created_at": now().isoformat(), "updated_at": now().isoformat()}
+    return JSONResponse({"device_id": did, "name": body.get("name"), "created_at": now().isoformat()}, status_code=201)
+
+
+@app.get("/api/devices")
+def list_devices():
+    return list(S.devices.values())
+
+
+@app.post("/api/auth/device/init")
+async def pair_init(request: Request):
+    body = await request.json()
+    code = f"dc-{len(S.pairings) + 1}"
+    user_code = f"ABCD-{len(S.pairings) + 1:04d}"
+    S.pairings[code] = {"user_code": user_code, "status": "pending", "name": body.get("name"),
+                        "client": body.get("client")}
+    return JSONResponse({"device_code": code, "user_code": user_code, "verification_path": "/pair/device",
+                         "verification_path_complete": f"/pair/device?user_code={user_code}",
+                         "expires_in": 600, "interval": 2}, status_code=201)
+
+
+@app.post("/debug/pair/approve")
+def pair_approve(user_code: str, deny: bool = False):
+    for p in S.pairings.values():
+        if p["user_code"] == user_code:
+            p["status"] = "denied" if deny else "approved"
+            return p
+    raise HTTPException(404)
+
+
+@app.post("/api/auth/device/token")
+async def pair_token(request: Request):
+    body = await request.json()
+    p = S.pairings.get(body.get("device_code"))
+    if p is None:
+        raise HTTPException(400, "expired_token")
+    if p["status"] == "pending":
+        raise HTTPException(400, "authorization_pending")
+    if p["status"] == "denied":
+        raise HTTPException(400, "access_denied")
+    did = f"dev-{len(S.devices) + 1}"
+    S.devices[did] = {"id": did, "user_id": 1, "name": p["name"], "client": p["client"], "hostname": None,
+                      "sync_mode": "api", "sync_enabled": True, "last_seen": now().isoformat(),
+                      "created_at": now().isoformat(), "updated_at": now().isoformat()}
+    p["status"] = "used"
+    return {"access_token": "rmm_mock_paired_token", "device_id": did, "scopes": ["assets.read", "assets.write"],
+            "expires_at": None}
+
+
+@app.get("/api/platforms/supported")
+def supported_platforms():
+    return [{"id": pid, "slug": slug, "name": display, "display_name": display} for pid, (slug, display, _) in PLATFORMS.items()]
+
+
+@app.post("/api/export/gamelist-xml")
+def export_gamelist(platform_ids: List[int] = Query(...), local_export: bool = False):
+    S.exports.append(list(platform_ids))
+    return Response(status_code=200)
+
+
+@app.get("/api/memory-cards")
+def list_cards(emulator: Optional[str] = None):
+    return [c for c in S.cards if emulator in (None, c["emulator"])]
+
+
+@app.post("/api/memory-cards")
+async def create_card(request: Request):
+    body = await request.json()
+    c = {"id": len(S.cards) + 1, "user_id": 1, "emulator": body["emulator"], "platform_id": body.get("platform_id"),
+         "name": body["name"], "slot": 1, "is_public": False, "created_at": now().isoformat(),
+         "updated_at": now().isoformat()}
+    S.cards.append(c)
+    return c
+
+
+@app.get("/api/memory-cards/{cid}/versions")
+def card_versions(cid: int):
+    return sorted([v for v in S.card_versions if v["memory_card_id"] == cid], key=lambda v: v["id"], reverse=True)
+
+
+@app.post("/api/memory-cards/{cid}/versions")
+async def upload_card(cid: int, request: Request):
+    form = await request.form()
+    f = form.get("cardFile")
+    data = await f.read()
+    import zipfile as _z
+    import io as _io
+    if not _z.is_zipfile(_io.BytesIO(data)):
+        raise HTTPException(400, "Memory card archive rejected, not a zip")
+    vid = len(S.card_versions) + 1
+    v = {"id": vid, "memory_card_id": cid, "file_name": f.filename, "file_size_bytes": len(data),
+         "content_hash": hashlib.md5(data).hexdigest(), "download_path": f"/api/memory-cards/versions/{vid}/content",
+         "missing_from_fs": False, "created_at": now().isoformat(), "updated_at": now().isoformat()}
+    S.card_versions.append(v)
+    S.blobs[f"card:{vid}"] = data
+    for c in S.cards:
+        if c["id"] == cid:
+            c["updated_at"] = v["updated_at"]
+    return v
+
+
+@app.get("/api/memory-cards/versions/{vid}/content")
+def card_content(vid: int):
+    return Response(S.blobs[f"card:{vid}"], media_type="application/zip")
+
+
+@app.post("/debug/hold/{aid}")
+def debug_hold(aid: int):
+    """Pretend a RomM 5.5 snapshot holds this save: replacing it in place answers 409."""
+    S.held.add(aid)
+    return sorted(S.held)
+
+
+@app.post("/debug/retroarch_upload")
+async def debug_retroarch_upload(request: Request, rom_id: int, file_name: str):
+    """A save uploaded by RetroArch Cloud Sync (its device is client='retroarch')."""
+    ra = next((d for d in S.devices.values() if d["client"] == "retroarch"), None)
+    if ra is None:
+        ra = {"id": "dev-retroarch", "user_id": 1, "name": "RetroArch", "client": "retroarch", "hostname": None,
+              "sync_mode": "api", "sync_enabled": True, "last_seen": now().isoformat(),
+              "created_at": now().isoformat(), "updated_at": now().isoformat()}
+        S.devices[ra["id"]] = ra
+    item = S.add_asset("saves", rom_id, file_name, (await request.body()) or b"retroarch save")
+    item["origin_device_id"] = ra["id"]
+    item["emulator"] = "snes9x"
+    return item
+
+
 @app.get("/api/platforms")
 def platforms():
     out = []
@@ -257,8 +404,19 @@ def content(kind: str, aid: int):
     return Response(blob, media_type="application/octet-stream")
 
 
+@app.post("/api/saves/{aid}/downloaded")
+async def confirm_downloaded(aid: int, request: Request):
+    body = await request.json()
+    for i in S.assets["saves"]:
+        if i["id"] == aid:
+            S.device_sync[(body["device_id"], aid)] = i["updated_at"]
+            return i
+    raise HTTPException(404)
+
+
 @app.post("/api/{kind}")
-async def upload(kind: str, request: Request, rom_id: int):
+async def upload(kind: str, request: Request, rom_id: int, device_id: Optional[str] = None,
+                 content_hash: Optional[str] = None, emulator: Optional[str] = None, overwrite: bool = False):
     if S.fail_uploads:
         raise HTTPException(403, "Forbidden: missing scope assets.write")
     form = await request.form()
@@ -266,12 +424,33 @@ async def upload(kind: str, request: Request, rom_id: int):
     if f is None:
         raise HTTPException(400, "missing file")
     data = await f.read()
-    item = S.add_asset(_kind(kind), rom_id, f.filename, data, with_screenshot="screenshotFile" in form)
+    kind = _kind(kind)
+    if device_id and kind == "saves":
+        # RomM 5.4: a device's upload over a save with the same name replaces it, unless the save changed since
+        # this device last synced it (409 "Save has been updated since your last sync").
+        same = next((i for i in S.assets[kind] if i["rom_id"] == rom_id and i["file_name"] == f.filename
+                     and i["id"] not in S.held), None)
+        if same is not None:
+            synced = S.device_sync.get((device_id, same["id"]))
+            if synced and synced < same["updated_at"] and not overwrite:
+                raise HTTPException(409, "Save has been updated since your last sync")
+            S.blobs[f"{kind}:{same['id']}"] = data
+            same.update(file_size_bytes=len(data), content_hash=hashlib.md5(data).hexdigest(),
+                        updated_at=now().isoformat(), origin_device_id=device_id, emulator=emulator or same["emulator"])
+            S.device_sync[(device_id, same["id"])] = same["updated_at"]
+            return same
+    item = S.add_asset(kind, rom_id, f.filename, data, with_screenshot="screenshotFile" in form)
+    item["emulator"] = emulator
+    if device_id:
+        item["origin_device_id"] = device_id
+        S.device_sync[(device_id, item["id"])] = item["updated_at"]
     return item
 
 
 @app.put("/api/{kind}/{aid}")
-async def replace(kind: str, aid: int, request: Request):
+async def replace(kind: str, aid: int, request: Request, device_id: Optional[str] = None):
+    if aid in S.held:
+        raise HTTPException(409, "This save is held by a snapshot and can't be changed")
     form = await request.form()
     f = form.get("saveFile") or form.get("stateFile")
     for i in S.assets[_kind(kind)]:
@@ -283,6 +462,8 @@ async def replace(kind: str, aid: int, request: Request):
                 if kind == "saves":
                     i["content_hash"] = hashlib.md5(data).hexdigest()
             i["updated_at"] = now().isoformat()
+            if device_id:
+                S.device_sync[(device_id, aid)] = i["updated_at"]
             return i
     raise HTTPException(404)
 
