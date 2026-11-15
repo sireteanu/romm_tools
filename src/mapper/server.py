@@ -866,13 +866,8 @@ def api_romm_progress():
 @app.get("/api/romm/platforms")
 def api_romm_platforms():
     """RomM's platform list. It only changes with a new version, so the page loads it once."""
-    known = dict(romm.PLATFORMS)
-    try:  # platforms RomM added after the built-in list, from the catalog save sync keeps (src/platforms.py)
-        from .. import platforms as catalog
-        for slug, name in (catalog.get_catalog().get("platforms") or {}).items():
-            known.setdefault(slug, (name, "", ""))
-    except Exception:  # noqa: BLE001 - the built-in list is always enough
-        pass
+    from .. import platforms as catalog   # one list for both parts: built-in + RomM's GitHub + your RomM
+    known = catalog.known_platforms()
     slugs = [{"slug": k, "name": v[0], "family": v[1], "kind": v[2]} for k, v in sorted(known.items())]
     return jsonify({"slugs": slugs})
 

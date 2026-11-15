@@ -194,15 +194,22 @@ def check_action(action: str) -> str:
     return low
 
 
-_SUGGEST = {s.replace("-", " "): s for s in SLUGS}
+def _slugs() -> frozenset:
+    """Every known RomM slug (built-in list + newer ones from RomM itself), see src/platforms.py."""
+    try:
+        from .. import platforms as catalog
+        return catalog.known_slugs()
+    except Exception:  # noqa: BLE001 - the built-in list is always enough
+        return SLUGS
 
 
 def suggest(name: str) -> Optional[str]:
     n = name.lower()
     n = n.split(" - ", 1)[-1]                       # "Watara - Supervision" -> "supervision"
     n = re.sub(r"\(.*?\)|\[.*?\]", "", n).strip()
-    m = difflib.get_close_matches(n, list(_SUGGEST), n=1, cutoff=0.9)
-    return _SUGGEST[m[0]] if m else None
+    options = {s.replace("-", " "): s for s in _slugs()}
+    m = difflib.get_close_matches(n, list(options), n=1, cutoff=0.9)
+    return options[m[0]] if m else None
 
 
 class Mapping:
@@ -286,7 +293,7 @@ class Mapping:
                 r.update(kind=MERGE, slug=up["slug"])
         elif up and up["kind"] in (SKIP, BIOS):
             r.update(kind=up["kind"], slug=up["slug"])
-        elif name_of(path) in SLUGS and "/" not in self.inner(path):
+        elif name_of(path) in _slugs() and "/" not in self.inner(path):
             # a folder named exactly like a RomM platform right inside a download folder (a
             # RomM-style collection: collection/snes, collection/psx)
             r.update(kind=PLATFORM, slug=name_of(path))
@@ -400,7 +407,7 @@ class Mapping:
                 row["conflict"] = self.lost[path]
             if r.get("excluded_tree"):
                 row["excluded_by"] = r.get("excluded_by")
-            if r["kind"] in (PLATFORM, MERGE) and r["slug"] not in SLUGS:
+            if r["kind"] in (PLATFORM, MERGE) and r["slug"] not in _slugs():
                 row["custom"] = True
             out.append(row)
         return out
@@ -415,7 +422,8 @@ class Mapping:
         for p, winner in self.lost.items():
             w.append(f"{p} and {winner} are both set to {self.res[p]['slug']}: RomM gets {winner}, "
                      f"{p} is left out.")
-        custom = sorted({p["slug"] for p in self.platforms if p["slug"] not in SLUGS})
+        known = _slugs()
+        custom = sorted({p["slug"] for p in self.platforms if p["slug"] not in known})
         unknown = [s for s in custom if s not in VERSIONS]
         if unknown:
             w.append("RomM has no platform called " + ", ".join(unknown) +

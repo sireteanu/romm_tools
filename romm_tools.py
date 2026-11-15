@@ -54,7 +54,8 @@ def start_app():
             # The RomM platform picker also offers platforms newer than its built-in list, from the
             # same cached catalog save sync uses (refreshed weekly; save sync refreshes it otherwise).
             from src import platforms as platform_catalog
-            threading.Thread(target=platform_catalog.ensure_catalog, name="platform-catalog", daemon=True).start()
+            threading.Thread(target=lambda: platform_catalog.ensure_catalog(client=app_cfg.ROMM_CREDENTIALS),
+                             name="platform-catalog", daemon=True).start()
     else:
         logger.info("ROM folders are off (ROM_FOLDERS=false).")
 
@@ -73,7 +74,8 @@ def initialize_romm_sync(app_cfg):
     # RomM's platform list + folder aliases (from GitHub, cached in /data). In the background so a
     # server without internet access never delays startup.
     from src import platforms as platform_catalog
-    catalog_thread = threading.Thread(target=lambda: platform_catalog.ensure_catalog(app_cfg.ROMM_CREDENTIALS.version()),
+    catalog_thread = threading.Thread(target=lambda: platform_catalog.ensure_catalog(app_cfg.ROMM_CREDENTIALS.version(),
+                                                                                     client=app_cfg.ROMM_CREDENTIALS),
                                       name="platform-catalog", daemon=True)
     catalog_thread.start()
     if not platform_catalog.get_catalog().get("platforms"):

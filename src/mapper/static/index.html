@@ -5,41 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ROM folders · romm_tools</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%237c5cff'/%3E%3Cpath d='M9 12a7 7 0 0 1 12-3l2-2v6h-6l2-2a4 4 0 0 0-7 2zM23 20a7 7 0 0 1-12 3l-2 2v-6h6l-2 2a4 4 0 0 0 7-2z' fill='white'/%3E%3C/svg%3E">
-<style>
-  /* Same look as the save sync pages: RomM 5.x's colours, type and shapes
-     (frontend/src/v2/styles/tokens.css). Not affiliated with the RomM project. */
-  :root {
-    --bg:#07070f; --surface:rgba(255,255,255,.07); --surface-2:rgba(255,255,255,.045); --surface-hover:rgba(255,255,255,.12);
-    --panel:#100c1c; --line:rgba(255,255,255,.1); --line-strong:rgba(255,255,255,.15);
-    --text:#ffffff; --muted:rgba(255,255,255,.55); --faint:rgba(255,255,255,.45);
-    --accent:#8b74e8; --accent-hover:#a18fff; --accent-ink:#ffffff; --accent2:#e1a38d;
-    --ok:#4ade80; --warn:#fbbf24; --bad:#f87171;
-    --bad-bg:rgba(255,80,80,.14); --accent-bg:rgba(139,116,232,.18); --glow:rgba(96,67,200,.35);
-    --r-md:8px; --r-pill:100px;
-    --font:"Segoe UI",-apple-system,BlinkMacSystemFont,system-ui,"Inter",Roboto,sans-serif;
-    --ease:cubic-bezier(0.22,1,0.36,1);
-    color-scheme:dark;
-  }
-  @media (prefers-color-scheme: light) {
-    :root:not([data-theme="dark"]) {
-      --bg:#f5f5fa; --surface:rgba(0,0,0,.035); --surface-2:rgba(0,0,0,.025); --surface-hover:rgba(0,0,0,.1);
-      --panel:#ffffff; --line:rgba(0,0,0,.1); --line-strong:rgba(0,0,0,.22);
-      --text:#111117; --muted:rgba(17,17,23,.74); --faint:rgba(17,17,23,.58);
-      --accent:#553e98; --accent-hover:#452788; --accent-ink:#ffffff; --accent2:#a85530;
-      --ok:#15a34a; --warn:#ca8a04; --bad:#dc2626;
-      --bad-bg:rgba(220,38,38,.1); --accent-bg:rgba(85,62,152,.1); --glow:rgba(161,143,255,.25);
-      color-scheme:light;
-    }
-  }
-  :root[data-theme="light"] {
-    --bg:#f5f5fa; --surface:rgba(0,0,0,.035); --surface-2:rgba(0,0,0,.025); --surface-hover:rgba(0,0,0,.1);
-    --panel:#ffffff; --line:rgba(0,0,0,.1); --line-strong:rgba(0,0,0,.22);
-    --text:#111117; --muted:rgba(17,17,23,.74); --faint:rgba(17,17,23,.58);
-    --accent:#553e98; --accent-hover:#452788; --accent-ink:#ffffff; --accent2:#a85530;
-    --ok:#15a34a; --warn:#ca8a04; --bad:#dc2626;
-    --bad-bg:rgba(220,38,38,.1); --accent-bg:rgba(85,62,152,.1); --glow:rgba(161,143,255,.25);
-    color-scheme:light;
-  }
+<link rel="stylesheet" href="../common.css">
+  <style>
   /* the names this page used before, on top of those */
   :root, :root[data-theme] {
     --border:var(--line-strong); --accent-text:var(--accent-ink); --danger:var(--bad);
@@ -52,31 +19,8 @@
                      var(--bg);
          background-attachment: fixed; }
   a { color: var(--accent); }
-  /* shared top bar (same as the save sync pages) */
-  header.top { position: sticky; top: 0; z-index: 20; background: color-mix(in srgb, var(--bg) 78%, transparent);
-               backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-bottom: 1px solid var(--line); }
-  header.top .wrap { max-width: 1360px; margin: 0 auto; padding: 0 20px; display: flex; align-items: center; gap: 14px; height: 58px; }
-  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; letter-spacing: .2px; font-size: 16px; }
-  .brand .logo { width: 30px; height: 30px; border-radius: var(--r-md); background: linear-gradient(135deg, var(--accent-hover), #6043c8);
-                 display: grid; place-items: center; box-shadow: 0 2px 8px rgba(0,0,0,.2); }
-  .brand .ver { font-size: 11.5px; font-weight: 600; color: var(--muted); text-decoration: none; border: 1px solid var(--line);
-                border-radius: 99px; padding: 1px 8px; margin-left: 6px; vertical-align: 2px; font-variant-numeric: tabular-nums; }
-  .brand .ver:empty { display: none; }
-  .nav { display: flex; gap: 2px; margin-left: 18px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-pill);
-         padding: 3px; height: 38px; align-items: center; }
-  .nav a { height: 30px; padding: 0 11px; border-radius: var(--r-pill); color: var(--muted); text-decoration: none; font-weight: 600;
-           font-size: 13px; display: flex; align-items: center; white-space: nowrap; flex-shrink: 0;
-           transition: background .15s var(--ease), color .15s var(--ease); }
-  .nav a:hover { color: var(--text); }
-  .nav a.on { background: var(--text); color: var(--bg); }
-  .nav .sep { width: 1px; height: 18px; background: var(--line-strong); margin: 0 4px; flex: none; }
   .iconbtn { border: 0; background: transparent; cursor: pointer; color: var(--muted); padding: 6px; border-radius: 8px; }
   .iconbtn:hover { background: var(--surface-2); color: var(--text); }
-  @media (max-width: 860px) {
-    header.top .wrap { flex-wrap: wrap; height: auto; padding-top: 10px; padding-bottom: 10px; row-gap: 10px; }
-    .nav { order: 10; margin-left: 0; width: 100%; overflow-x: auto; scrollbar-width: none; }
-    .nav a { flex: 1 0 auto; justify-content: center; padding: 0 10px; }
-  }
   .subhead { padding: 16px 20px 8px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
   .subhead h1 { font-size: 20px; margin: 0; }
   .paths { color: var(--muted); font-size: 12px; padding: 0 20px; }
@@ -306,7 +250,6 @@
    Form controls that look like RomM's own (RCheckbox, RTextField, RSelect in its frontend/src/lib):
    same sizes, colours and effects, written anew - no RomM code. Keep this block identical in src/web_static/index.html and
    src/mapper/static/index.html - tests/test_romm_tools.py checks it. */
-:root { --accent-solid: light-dark(#553e98, #7459e3); --spring: cubic-bezier(.34, 1.56, .64, 1); }
 input[type=checkbox]:not(.sw input) {
   appearance: none; -webkit-appearance: none; flex-shrink: 0; width: 18px; height: 18px; margin: 0;
   display: inline-grid; place-content: center; vertical-align: middle; cursor: pointer;

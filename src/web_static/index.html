@@ -5,66 +5,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>romm_tools</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%237c5cff'/%3E%3Cpath d='M9 12a7 7 0 0 1 12-3l2-2v6h-6l2-2a4 4 0 0 0-7 2zM23 20a7 7 0 0 1-12 3l-2 2v-6h6l-2 2a4 4 0 0 0 7-2z' fill='white'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="common.css">
 <style>
-:root{
-  /* Colours, type and shapes follow RomM 5.x's own design tokens (frontend/src/v2/styles/tokens.css)
-     so this dashboard feels at home next to RomM. Not affiliated with the RomM project. */
-  --bg:#07070f; --surface:rgba(255,255,255,.07); --surface-2:rgba(255,255,255,.045); --surface-hover:rgba(255,255,255,.12);
-  --panel:#100c1c; --line:rgba(255,255,255,.1); --line-strong:rgba(255,255,255,.15);
-  --text:#ffffff; --muted:rgba(255,255,255,.55); --faint:rgba(255,255,255,.45);
-  --accent:#8b74e8; --accent-hover:#a18fff; --accent-ink:#ffffff; --accent2:#e1a38d;
-  --ok:#4ade80; --warn:#fbbf24; --bad:#f87171; --info:#93c5fd;
-  --ok-bg:rgba(74,222,128,.13); --warn-bg:rgba(251,191,36,.13); --bad-bg:rgba(255,80,80,.14); --info-bg:rgba(147,197,253,.13); --accent-bg:rgba(139,116,232,.18);
-  --glow:rgba(96,67,200,.35); --shadow:0 8px 30px rgba(0,0,0,.6);
-  --radius:14px; --r-md:8px; --r-chip:6px; --r-pill:100px;
-  --font:"Segoe UI",-apple-system,BlinkMacSystemFont,system-ui,"Inter",Roboto,sans-serif;
-  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
-  --ease:cubic-bezier(0.22,1,0.36,1);
-  color-scheme:dark;
-}
-@media (prefers-color-scheme: light){
-  :root:not([data-theme="dark"]){
-  --bg:#f5f5fa; --surface:rgba(0,0,0,.035); --surface-2:rgba(0,0,0,.025); --surface-hover:rgba(0,0,0,.1);
-  --panel:#f0f0f6; --line:rgba(0,0,0,.1); --line-strong:rgba(0,0,0,.22);
-  --text:#111117; --muted:rgba(17,17,23,.74); --faint:rgba(17,17,23,.58);
-  --accent:#553e98; --accent-hover:#452788; --accent-ink:#ffffff; --accent2:#a85530;
-  --ok:#15a34a; --warn:#ca8a04; --bad:#dc2626; --info:#2563eb;
-  --ok-bg:rgba(21,163,74,.1); --warn-bg:rgba(202,138,4,.12); --bad-bg:rgba(220,38,38,.1); --info-bg:rgba(37,99,235,.1); --accent-bg:rgba(85,62,152,.1);
-  --glow:rgba(161,143,255,.25); --shadow:0 8px 24px rgba(17,17,23,.12);
-  color-scheme:light;
-  }
-}
-:root[data-theme="light"]{
-  --bg:#f5f5fa; --surface:rgba(0,0,0,.035); --surface-2:rgba(0,0,0,.025); --surface-hover:rgba(0,0,0,.1);
-  --panel:#f0f0f6; --line:rgba(0,0,0,.1); --line-strong:rgba(0,0,0,.22);
-  --text:#111117; --muted:rgba(17,17,23,.74); --faint:rgba(17,17,23,.58);
-  --accent:#553e98; --accent-hover:#452788; --accent-ink:#ffffff; --accent2:#a85530;
-  --ok:#15a34a; --warn:#ca8a04; --bad:#dc2626; --info:#2563eb;
-  --ok-bg:rgba(21,163,74,.1); --warn-bg:rgba(202,138,4,.12); --bad-bg:rgba(220,38,38,.1); --info-bg:rgba(37,99,235,.1); --accent-bg:rgba(85,62,152,.1);
-  --glow:rgba(161,143,255,.25); --shadow:0 8px 24px rgba(17,17,23,.12);
-  color-scheme:light;
-}
-*{box-sizing:border-box}
-[hidden]{display:none!important}
 html,body{margin:0;background:var(--bg);color:var(--text);font:13px/1.4 var(--font)}
 body{background:
   radial-gradient(1100px 520px at 12% -8%, var(--glow), transparent 70%),
   radial-gradient(900px 480px at 100% 0%, color-mix(in srgb,var(--accent2) 14%,transparent), transparent 70%),
   var(--bg);background-attachment:fixed;min-height:100vh}
-::selection{background:var(--accent);color:#fff}
-*{scrollbar-width:thin;scrollbar-color:#a452fe59 transparent}
-::-webkit-scrollbar{width:12px;height:12px} ::-webkit-scrollbar-thumb{background:#a452fe59;border-radius:12px} ::-webkit-scrollbar-track{background:transparent}
 :focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:6px}
 button{font:inherit;color:inherit}
 a{color:var(--accent)}
 .wrap{max-width:1360px;margin:0 auto;padding:0 20px 60px}
-header.top{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--bg) 78%,transparent);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid var(--line)}
-header.top .wrap{display:flex;align-items:center;gap:14px;height:58px;padding-bottom:0}
-.brand{display:flex;align-items:center;gap:10px;font-weight:700;letter-spacing:.2px;font-size:16px}
-.brand .logo{width:30px;height:30px;border-radius:var(--r-md);background:linear-gradient(135deg,var(--accent-hover),#6043c8);display:grid;place-items:center;box-shadow:0 2px 8px rgba(0,0,0,.2)}
 .brand small{font-weight:500;color:var(--muted);font-size:12px}
-.ver{font-size:11.5px;font-weight:600;color:var(--muted);text-decoration:none;border:1px solid var(--line);border-radius:99px;padding:1px 8px;margin-left:6px;vertical-align:2px;font-variant-numeric:tabular-nums}
-.ver:hover{color:var(--text);border-color:var(--faint)}
 .upd{font-size:11.5px;font-weight:650;text-decoration:none;border-radius:99px;padding:2px 9px;background:var(--accent-bg);color:var(--accent);white-space:nowrap}
 .spacer{flex:1}
 .pill{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:99px;font-size:12px;background:var(--surface-2);color:var(--muted);border:1px solid var(--line);white-space:nowrap}
@@ -286,12 +238,6 @@ select option,select optgroup{background:var(--panel);color:var(--text)}
 .kvlist dt{color:var(--muted)} .kvlist dd{margin:0;font-family:var(--mono);font-size:12.5px;word-break:break-all}
 @media (max-width:860px){ .set-grid{grid-template-columns:1fr} }
 /* nav + platforms view */
-.nav{display:flex;gap:2px;margin-left:18px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-pill);padding:3px;height:38px;align-items:center}
-.nav a{height:30px;padding:0 14px;border-radius:var(--r-pill);color:var(--muted);text-decoration:none;font-weight:600;font-size:13px;display:flex;gap:6px;align-items:center;white-space:nowrap;flex-shrink:0;transition:background .15s var(--ease),color .15s var(--ease)}
-.nav a:hover{color:var(--text)}
-.nav a.on{background:var(--text);color:var(--bg)}
-.nav a .n{font-size:11px;background:var(--bad-bg);color:var(--bad);border-radius:99px;padding:0 6px}
-.nav .sep{width:1px;height:18px;background:var(--line-strong);margin:0 4px;flex:none}
 @media (max-width:1480px){ .nav a{padding:0 11px} #mode-pill{display:none} }
 .pf-head{padding:18px 20px;display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap}
 .pf-head h3{margin:0 0 4px;font-size:18px}
@@ -345,7 +291,6 @@ html,body{overflow-x:hidden}
    Form controls that look like RomM's own (RCheckbox, RTextField, RSelect in its frontend/src/lib):
    same sizes, colours and effects, written anew - no RomM code. Keep this block identical in src/web_static/index.html and
    src/mapper/static/index.html - tests/test_romm_tools.py checks it. */
-:root { --accent-solid: light-dark(#553e98, #7459e3); --spring: cubic-bezier(.34, 1.56, .64, 1); }
 input[type=checkbox]:not(.sw input) {
   appearance: none; -webkit-appearance: none; flex-shrink: 0; width: 18px; height: 18px; margin: 0;
   display: inline-grid; place-content: center; vertical-align: middle; cursor: pointer;

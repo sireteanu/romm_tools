@@ -117,9 +117,14 @@ def fetch_catalog(romm_version: Optional[str] = None) -> dict:
     if len(platforms) < 50:
         raise RuntimeError(f"Platform list looks wrong ({len(platforms)} entries) — not saving it")
     with _lock:
-        catalog_file().write_text(json.dumps(catalog, indent=1))
         global _catalog_cache
+        old = get_catalog()
+        for k in ("server_platforms", "server_version", "server_fetched_at"):   # keep what your RomM said
+            if old.get(k):
+                catalog[k] = old[k]
+        catalog_file().write_text(json.dumps(catalog, indent=1))
         _catalog_cache = catalog
+        _known_cache.clear()
     logger.info(f"Loaded {len(platforms)} RomM platforms and {len(aliases)} folder aliases from {catalog['source']}")
     return catalog
 
@@ -136,8 +141,66 @@ def get_catalog() -> dict:
         return _catalog_cache
 
 
-def ensure_catalog(romm_version: Optional[str] = None, force: bool = False) -> dict:
-    """Refresh the catalog from GitHub if missing, stale, or for a different RomM version. Never raises."""
+def refresh_from_server(client) -> int:
+    """Add the platform list of the user's own RomM (/api/platforms/supported) to the catalog: always the right
+    list for that RomM version, with its own names. -> number of platforms, 0 when unavailable. Never raises."""
+    global _catalog_cache
+    if client is None or not getattr(client, "url", None):
+        return 0
+    try:
+        rows = client.supported_platforms()
+    except Exception as e:  # noqa: BLE001 - RomM down or old: the GitHub list and built-in list remain
+        logger.debug(f"RomM's supported platform list unavailable: {e}")
+        return 0
+    found = {p["slug"]: (p.get("display_name") or p.get("name") or p["slug"]) for p in rows
+             if isinstance(p, dict) and p.get("slug")}
+    if not found:
+        return 0
+    with _lock:
+        cat = dict(get_catalog())
+        cat.update(server_platforms=found, server_version=client.version(), server_fetched_at=utcnow_iso())
+        try:
+            catalog_file().write_text(json.dumps(cat, indent=1))
+        except OSError as e:
+            logger.debug(f"Couldn't save the platform catalog: {e}")
+        _catalog_cache = cat
+        _known_cache.clear()
+    logger.info(f"Loaded {len(found)} platforms from your RomM's own list.")
+    return len(found)
+
+
+_known_cache: dict = {}
+
+
+def known_platforms() -> Dict[str, tuple]:
+    """Every RomM platform as {slug: (name, family, kind)}: the built-in list (which also carries family/kind for
+    the ROM folders page) plus newer platforms from RomM's GitHub, with names and slugs from your own RomM on top.
+    One list for both parts of romm_tools."""
+    from .mapper.romm_slugs import PLATFORMS as BUILTIN
+    cat = get_catalog()
+    stamp = (cat.get("fetched_at"), cat.get("server_fetched_at"))
+    if _known_cache.get("stamp") == stamp:
+        return _known_cache["value"]
+    out = dict(BUILTIN)
+    for slug, name in (cat.get("platforms") or {}).items():
+        out.setdefault(slug, (name, "", ""))
+    for slug, name in (cat.get("server_platforms") or {}).items():
+        _old, fam, kind = out.get(slug, (name, "", ""))
+        out[slug] = (name, fam, kind)
+    _known_cache.update(stamp=stamp, value=out, slugs=frozenset(out))
+    return out
+
+
+def known_slugs() -> frozenset:
+    known_platforms()
+    return _known_cache["slugs"]
+
+
+def ensure_catalog(romm_version: Optional[str] = None, force: bool = False, client=None) -> dict:
+    """Refresh the catalog from GitHub if missing, stale, or for a different RomM version, and from your RomM
+    when `client` is given. Never raises."""
+    if client is not None:
+        refresh_from_server(client)
     cat = get_catalog()
     stale = True
     if cat.get("fetched_at"):

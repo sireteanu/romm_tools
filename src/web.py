@@ -137,6 +137,11 @@ def create_app(cfg) -> FastAPI:
             return RedirectResponse("roms/")   # only the ROM folders part is set up
         return FileResponse(STATIC_DIR / "index.html", headers={"Cache-Control": "no-cache"})
 
+    @app.get("/common.css", include_in_schema=False)
+    def common_css():
+        """Styles both pages share (RomM's design tokens and the top bar)."""
+        return FileResponse(STATIC_DIR / "common.css", media_type="text/css", headers={"Cache-Control": "no-cache"})
+
     @app.get("/static/{name}")
     def static(name: str):
         p = (STATIC_DIR / name).resolve()

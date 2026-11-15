@@ -159,3 +159,30 @@ def test_both_pages_share_the_romm_components_block():
         assert start < end < html.index("</style>")
         blocks.append(html[start:end])
     assert blocks[0] == blocks[1]
+
+
+def test_one_platform_list_for_both_parts(tmp_path, monkeypatch):
+    """Built-in list + RomM's GitHub catalog + the user's own RomM, newest names winning."""
+    monkeypatch.setenv("DATA_DIR", str(tmp_path))
+    from src import platforms
+
+    class FakeClient:
+        url = "http://romm"
+
+        def supported_platforms(self):
+            return [{"slug": "snes", "name": "SNES", "display_name": "Super Nintendo (my RomM)"},
+                    {"slug": "brand-new-console", "name": "Brand New Console"}]
+
+        def version(self):
+            return "5.5.0"
+
+    platforms._catalog_cache = {"fetched_at": "2026-01-01T00:00:00+00:00", "platforms": {"github-only": "GitHub Only"},
+                                "aliases": {}}
+    platforms._known_cache.clear()
+    assert platforms.refresh_from_server(FakeClient()) == 2
+    known = platforms.known_platforms()
+    assert known["snes"][0] == "Super Nintendo (my RomM)"
+    assert "brand-new-console" in platforms.known_slugs() and "github-only" in known
+    assert known["psx"]                                   # still has the built-in ones
+    platforms._catalog_cache = None
+    platforms._known_cache.clear()
