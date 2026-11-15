@@ -10,7 +10,7 @@ import yaml
 
 # program imports
 from .games_class import Game
-from .romm_api_func import RommUser
+from .romm_client import RommUser
 from .config import METADATA_FILE_FILTERS, get_config
 from . import platforms as platform_catalog
 

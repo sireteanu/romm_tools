@@ -5,7 +5,7 @@ import logging
 from pathlib import Path
 from typing import Optional
 from loguru import logger
-from .romm_api_func import RommUser
+from .romm_client import RommUser
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -304,7 +304,7 @@ class LoggingConfig:
             # Color code timestamp based on module
             if module.startswith("watchdog"):
                 timestamp_colored = "<light-blue>{time:YYYY-MM-DD HH:mm:ss}</light-blue>"
-            elif module.startswith(("requests", "urllib3", "src.romm_api_func", "romm_api_func")):
+            elif module.startswith(("requests", "urllib3", "src.romm_client", "romm_client")):
                 timestamp_colored = "<magenta>{time:YYYY-MM-DD HH:mm:ss}</magenta>"
             elif module.startswith(("src.sync_orchestrator", "sync_orchestrator")):
                 timestamp_colored = "<light-red>{time:YYYY-MM-DD HH:mm:ss}</light-red>"

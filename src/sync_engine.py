@@ -22,9 +22,7 @@ from __future__ import annotations
 
 import hashlib
 import os
-import re
 import shutil
-from dataclasses import dataclass
 from datetime import datetime, timezone, timedelta
 from time import perf_counter
 from pathlib import Path
@@ -36,227 +34,10 @@ from .config import get_config
 from .games_class import Game
 from .sync_state import STATE, PendingAction, ProgressReporter, data_dir, utcnow_iso
 
-CONFLICT_MARKER = "(conflict "
-_VERSION_TAG = re.compile(r"\s*\[\d{4}-\d{2}-\d{2}[^\]]*\]")  # RomM 5.x slot version tag
-
-KIND_API = {"save": "saves", "state": "states"}
-
-
-# region helpers
-def md5_file(path: Path) -> str:
-    h = hashlib.md5()
-    with open(path, "rb") as f:
-        for chunk in iter(lambda: f.read(1 << 20), b""):
-            h.update(chunk)
-    return h.hexdigest()
-
-
-_hash_cache: Dict[str, Tuple[float, int, str]] = {}
-_hash_cache_loaded = False
-_hash_cache_dirty = False
-
-
-def _hash_cache_file() -> Path:
-    return data_dir() / "hash_cache.json"
-
-
-def _load_hash_cache():
-    global _hash_cache_loaded
-    if _hash_cache_loaded:
-        return
-    _hash_cache_loaded = True
-    try:
-        import json
-        raw = json.loads(_hash_cache_file().read_text())
-        _hash_cache.update({k: tuple(v) for k, v in raw.items()})
-        logger.debug(f"Loaded {len(_hash_cache)} cached file fingerprints")
-    except FileNotFoundError:
-        pass
-    except Exception as e:
-        logger.debug(f"Ignoring unreadable hash cache: {e}")
-
-
-def save_hash_cache(prune: bool = False):
-    """Persist fingerprints so a restart doesn't re-read every save. prune (full syncs only, which read the
-    folders anyway) drops files that no longer exist; small syncs skip it so they don't touch every file."""
-    global _hash_cache_dirty
-    if not _hash_cache_dirty:
-        return
-    import json
-    if prune:
-        for k in [k for k in _hash_cache if not os.path.exists(k)]:
-            del _hash_cache[k]
-    tmp = _hash_cache_file().with_suffix(".tmp")
-    try:
-        tmp.write_text(json.dumps(_hash_cache))
-        os.replace(tmp, _hash_cache_file())
-        _hash_cache_dirty = False
-    except OSError as e:
-        logger.debug(f"Couldn't save hash cache: {e}")
-
-
-def cached_md5(path: Path) -> str:
-    global _hash_cache_dirty
-    _load_hash_cache()
-    st = path.stat()
-    c = _hash_cache.get(str(path))
-    if c and c[0] == st.st_mtime and c[1] == st.st_size:
-        return c[2]
-    h = md5_file(path)
-    _hash_cache[str(path)] = (st.st_mtime, st.st_size, h)
-    _hash_cache_dirty = True
-    return h
-
-
-def parse_dt(value) -> Optional[datetime]:
-    if value is None:
-        return None
-    if isinstance(value, datetime):
-        dt = value
-    else:
-        try:
-            dt = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
-        except ValueError:
-            return None
-    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
-
-
-def same_time(a, b) -> bool:
-    da, db = parse_dt(a), parse_dt(b)
-    if da is None or db is None:
-        return da is db
-    return abs((da - db).total_seconds()) < 1
-
-
-def local_name_for_remote(item: dict, rom_row: Optional[dict] = None) -> str:
-    """Name a RomM save/state should have in the sync folder.
-
-    RetroArch only loads saves/states named after the ROM file, but RomM 5.x's own players and other
-    devices store them under other names: a version tag ("Game [2026-08-17_19-02-17].srm"), a slot name
-    ("Game.autosave.state0"), or no game name at all ("autosave.srm"). Strip the tag, and if what's left
-    doesn't name this ROM, rename it to the ROM's file name + the save/state extension:
-        "autosave [2026-08-17_19-02-17].srm"                 -> "Mario's Picross (USA, Europe).srm"
-        "Mario's Picross (USA, Europe).autosave.state0"      -> "Mario's Picross (USA, Europe).state0"
-        "Panzer Dragoon Saga (USA).bcr" (ROM "... (Disc 1)")  -> unchanged (multi-disc .m3u name)
-    """
-    name = _VERSION_TAG.sub("", item["file_name"])
-    if not rom_row:
-        return name
-    from .library_classes import LibraryScanner
-    game_name, ftype = LibraryScanner.parse_save_filename(name)
-    local_stem = rom_row.get("_local_stem")  # matched by title or linked by hand: the local game's own name
-    if not game_name or not ftype or game_name == local_stem or \
-            (not local_stem and LibraryScanner.find_rom(game_name, [rom_row]) is not None):
-        return name
-    rom_stem = local_stem or rom_row.get("fs_name_no_ext") or os.path.splitext(rom_row.get("fs_name") or "")[0]
-    if not rom_stem:
-        return name
-    suffix = name[len(game_name):]  # ".srm", ".state0", ".state.auto", ".autosave.state0" ...
-    if ftype in ("state", "state_screen"):
-        m = re.search(r"\.state(?:\d+|\.auto)?(?:\.png)?$", suffix)
-        suffix = m.group(0) if m else suffix
-        suffix = re.sub(r"^\.state0(?=$|\.png$)", ".state", suffix)  # RetroArch's slot 0 is ".state"
-    else:
-        suffix = os.path.splitext(name)[1]
-    return rom_stem + suffix
-
-
-def file_key(file_type: str, rom_id: int, name: str) -> str:
-    return f"{file_type}:{rom_id}:{name}"
-
-
-@dataclass
-class LocalFile:
-    file_type: str
-    path: Path
-    hash: str
-    size: int
-    mtime: datetime
-    screenshot: Optional[Path] = None
-
-
-@dataclass
-class Decision:
-    kind: Optional[str]      # None = nothing to do, "adopt" = record baseline only, else ACTION_KINDS
-    auto: bool = False
-    reason: str = ""
-# endregion
-
-
-def decide(local: Optional[LocalFile], remote: Optional[dict], baseline: Optional[dict],
-           push_new_mode: str = "auto", pull_mode: str = "auto", force: bool = False,
-           delete_mode: str = "auto", remote_ids: Optional[set] = None) -> Decision:
-    """Pure decision function — see module docstring. Kept free of I/O so it is easy to test.
-
-    remote_ids: ids of every RomM save/state for this ROM. A file only counts as deleted on RomM when the
-    RomM entry it was synced with is really gone (not just renamed or re-mapped)."""
-    pull_on = pull_mode != "off"
-    pull_auto = pull_mode == "auto"
-
-    if local and not remote:
-        if baseline and baseline.get("romm_id"):
-            gone = remote_ids is None or baseline["romm_id"] not in remote_ids
-            if gone and delete_mode != "off" and local.hash == baseline.get("local_hash"):
-                return Decision("delete_local", delete_mode == "auto",
-                                "Deleted on RomM since the last sync, so the copy in your sync folder is moved "
-                                "to the recycle bin.")
-            return Decision("push_new", False, "This file was synced before but is now missing on RomM. "
-                                               "Upload it again, or skip if it was deleted on purpose.")
-        return Decision("push_new", push_new_mode == "auto", "New in your sync folder; not on RomM yet.")
-
-    if remote and not local:
-        if baseline and delete_mode != "off" and remote.get("id") == baseline.get("romm_id") \
-                and same_time(remote.get("updated_at"), baseline.get("romm_updated_at")):
-            return Decision("delete_romm", delete_mode == "auto",
-                            "Deleted from your sync folder since the last sync, so RomM's copy is moved to the "
-                            "recycle bin.")
-        if not pull_on:
-            return Decision(None)
-        if baseline:
-            return Decision("pull_new", False, "This file was synced before but is now missing from your sync folder. "
-                                               "Download it again, or skip if it was deleted on purpose.")
-        return Decision("pull_new", pull_auto, "On RomM but not in your sync folder yet.")
-
-    if not local and not remote:
-        return Decision(None)
-
-    r_hash = remote.get("content_hash")
-    r_time = parse_dt(remote.get("updated_at"))
-
-    if r_hash and r_hash == local.hash:
-        return Decision("adopt", True, "Identical content")
-
-    if force:
-        return Decision("push_update", True, "FORCE_PUSH_SYNC")
-
-    if baseline is None:
-        # First time we see both copies (fresh install / upgrade from 1.x). No history to compare,
-        # so fall back to the original timestamp rule and don't invent conflicts.
-        if r_time is None or local.mtime > r_time:
-            return Decision("push_update", True, "Local copy is newer")
-        if r_hash and pull_on:  # RomM 5.x saves: we *know* contents differ and RomM is newer
-            # Ambiguous: no sync history, so we can't tell which copy holds the real progress. Always ask.
-            return Decision("pull_update", False, "Both copies exist but are different, and there's no sync history "
-                                                  "for this file yet, so it isn't clear which one has your latest "
-                                                  "progress. RomM's copy is newer.")
-        return Decision("adopt", True, "Assumed in sync (no previous sync record)")
-
-    local_changed = local.hash != baseline.get("local_hash")
-    remote_changed = (remote.get("id") != baseline.get("romm_id")
-                      or not same_time(remote.get("updated_at"), baseline.get("romm_updated_at")))
-    if remote_changed and r_hash and baseline.get("romm_hash") and r_hash == baseline.get("romm_hash"):
-        remote_changed = False  # metadata touched, content identical
-
-    if not local_changed and not remote_changed:
-        return Decision(None)
-    if local_changed and not remote_changed:
-        return Decision("push_update", True, "Changed locally since last sync")
-    if remote_changed and not local_changed:
-        if not pull_on:
-            return Decision(None)
-        return Decision("pull_update", pull_auto, "Changed on RomM since the last sync.")
-    return Decision("conflict", False, "Changed both in your sync folder and on RomM since the last sync, "
-                                       "so either version could be the one you want.")
+from .sync_files import (CONFLICT_MARKER, KIND_API, LocalFile, cached_md5, file_key, local_name_for_remote,  # noqa: F401
+                         md5_file, parse_dt, same_time, save_hash_cache)
+from .sync_rules import Decision, decide  # noqa: F401
+from .sync_errors import explain_error  # noqa: F401
 
 
 class SyncEngine:
@@ -635,13 +416,9 @@ class SyncEngine:
         return p
 
     def _check_remote_unchanged(self, action: PendingAction) -> dict:
-        import requests
-        url = f"{self.romm.url}/api/{action.romm_api or KIND_API[action.file_type]}/{action.romm_id}"
-        r = requests.get(url, timeout=30, **self.romm._auth_kwargs())
-        if r.status_code == 404:
+        item = self.romm.get_asset(action.romm_api or KIND_API[action.file_type], action.romm_id)
+        if item is None:
             raise StaleAction("RomM copy no longer exists")
-        r.raise_for_status()
-        item = r.json()
         if action.romm_updated_at and not same_time(item.get("updated_at"), action.romm_updated_at):
             raise StaleAction("RomM copy changed after this was queued — it will be re-checked on the next sync")
         return item
@@ -744,10 +521,7 @@ class SyncEngine:
         from . import recycle
         path = self._check_local_unchanged(action)
         if action.romm_id:
-            import requests
-            r = requests.get(f"{self.romm.url}/api/{action.romm_api or KIND_API[action.file_type]}/{action.romm_id}",
-                             timeout=30, **self.romm._auth_kwargs())
-            if r.status_code == 200:
+            if self.romm.get_asset(action.romm_api or KIND_API[action.file_type], action.romm_id) is not None:
                 raise StaleAction("The file is still on RomM, so nothing was deleted.")
         if self.cfg.DRY_RUN:
             return f"[dry run] would move {path.name} to the recycle bin"
@@ -898,45 +672,6 @@ class SyncEngine:
             "checked_at": utcnow_iso(),
         }
     # endregion
-
-
-def explain_error(e: Exception, action: PendingAction) -> str:
-    """Turn an exception into a sentence a person can act on."""
-    import requests
-    text = str(e)
-    where = "RomM" if action.kind.startswith("push") or action.kind == "conflict" else "your sync folder"
-    if isinstance(e, PermissionError) or "Permission denied" in text or "Read-only file system" in text:
-        return ("Couldn't write to your sync folder (permission denied / read-only). Make sure the saves and "
-                "states folders are mounted read-write (no ':ro') and that PUID/PGID can write there.")
-    if isinstance(e, OSError) and "No space left" in text:
-        return "The disk is full, so the file couldn't be written."
-    if isinstance(e, requests.exceptions.ConnectionError) or "Can't reach RomM" in text:
-        return f"Couldn't reach RomM at {get_config().ROMM_CREDENTIALS.url}. It will be retried on the next sync."
-    if isinstance(e, requests.exceptions.Timeout):
-        return "RomM took too long to respond. It will be retried on the next sync."
-    m = re.search(r"RomM returned (\d{3})", text) or re.search(r"(\d{3}) (?:Client|Server) Error", text)
-    code = int(m.group(1)) if m else None
-    if code in (401, 403):
-        return ("RomM refused this request. The API token probably lacks permission to "
-                + ("write saves/states (assets.write)." if where == "RomM" else "read saves/states (assets.read)."))
-    if code == 404:
-        return "RomM couldn't find this game or file any more (it may have been removed from RomM)."
-    if code == 413:
-        return "RomM rejected the file as too large. Check the upload size limit of RomM or your reverse proxy."
-    if code == 409:
-        return "RomM reported a conflict with an existing file. It will be re-checked on the next sync."
-    missing = re.search(r"Table '[^.']+\.(\w+)' doesn't exist|relation \"(\w+)\" does not exist", text)
-    if missing:
-        table = missing.group(1) or missing.group(2)
-        return (f"RomM's database is missing the '{table}' table, so RomM can't save or delete files. Its database "
-                "update (migration) didn't finish when RomM was last updated. Look for \"Failed to run database "
-                "migrations\" in RomM's container log, fix the cause, and restart RomM; it retries the update on "
-                "every start. Nothing was changed on either side.")
-    if code and code >= 500:
-        return f"RomM had an internal error ({code}). Check RomM's logs; it will be retried on the next sync."
-    if "back up" in text:
-        return "Couldn't make a backup of the RomM copy first, so nothing was overwritten. " + text
-    return text
 
 
 class StaleAction(Exception):

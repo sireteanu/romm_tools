@@ -88,47 +88,6 @@ class SyncOrchestrator:
         return srv, lcl
 
     @staticmethod
-    def _fetch_romm_data(games: List[Game]) -> None:
-        """Fetch current saves and states from ROMM for given games.
-
-        Args:
-            games: List of games to fetch ROMM state for
-        """
-        for game in games:
-            if game.is_matched:
-                logger.debug(f"Fetching ROMM data for {game.name}")
-                try:
-                    game.fetch_romm_saves()
-                    game.fetch_romm_states()
-                except Exception as e:
-                    logger.error(f"Failed to fetch ROMM data for {game.name}: {e}")
-
-    @staticmethod
-    def _push_local_to_romm(games: List[Game], force: bool) -> tuple[List[Game], List[tuple[Game, Exception]]]:
-        """Push local saves and states to ROMM.
-
-        Args:
-            games: List of games to sync to ROMM
-
-        Returns:
-            Tuple of (successful_games, failed_games_with_errors)
-        """
-        successful = []
-        failed = []
-
-        for game in games:
-            if game.is_matched:
-                logger.debug(f"Pushing local save data for {game.name} to ROMM.")
-                try:
-                    game.sync_local_saves_to_remote(force)
-                    game.sync_local_states_to_remote(force)
-                    successful.append(game)
-                except Exception as e:
-                    logger.error(f"Failed to sync {game.name} to ROMM: {e}")
-                    failed.append((game, e))
-        return successful, failed
-
-    @staticmethod
     def _validate_games(games: List[Game]) -> tuple[List[Game], List[Game]]:
         """Separate matched and unmatched games.
 
@@ -261,39 +220,34 @@ class SyncOrchestrator:
                 STATE.sync_finished(error=f"Watch sync failed: {e}")
                 return result
 
-
-def _romm_sync(self, rom_ids: set):
-    """Sync only the games whose RomM saves/states changed. Reads just those games' files."""
-    with STATE.sync_lock:
-        logger.info(f"---------- Starting RomM-change sync ({len(rom_ids)} game(s)) ----------")
-        STATE.sync_started()
-        try:
-            STATE.set_phase("building", "Refreshing RomM library")
-            self.srv = RetroGameServer.build_romm_library(self.app_cfg.ROMM_CREDENTIALS, sync_dirs=self.lcl.sync_folders)
-            all_games = list(self.lcl.games.values())
-            games = [g for g in all_games if g.is_matched and g.romm_id in rom_ids and sync_enabled(g.platform)]
-            summary = SyncEngine().reconcile(games, srv=self.srv, discover_remote=True, scope=rom_ids,
-                                             force=self.app_cfg.FORCE_PUSH_SYNC, all_games=all_games)
-            logger.info(f"[ROMMSYNC] {self._fmt(summary)}")
-            STATE.sync_finished(summary)
-            self._auto_prune(rom_ids)
-        except Exception as e:
-            logger.error(f"[ROMMSYNC] Failed! {e}")
-            STATE.sync_finished(error=f"Sync failed: {e}")
-
-
-def _auto_prune_impl(self, rom_ids: Optional[set] = None):
-    keep = int(getattr(self.app_cfg, "ROMM_KEEP_VERSIONS", 0) or 0)
-    if keep > 0:
-        try:
-            from . import manage
-            manage.auto_prune(self.srv, self.lcl, keep, rom_ids)
-        except Exception as e:  # noqa: BLE001
-            logger.error(f"Removing old RomM versions failed: {e}")
+    def romm_sync(self, rom_ids: set):
+        """Sync only the games whose RomM saves/states changed. Reads just those games' files."""
+        with STATE.sync_lock:
+            logger.info(f"---------- Starting RomM-change sync ({len(rom_ids)} game(s)) ----------")
+            STATE.sync_started()
+            try:
+                STATE.set_phase("building", "Refreshing RomM library")
+                self.srv = RetroGameServer.build_romm_library(self.app_cfg.ROMM_CREDENTIALS, sync_dirs=self.lcl.sync_folders)
+                all_games = list(self.lcl.games.values())
+                games = [g for g in all_games if g.is_matched and g.romm_id in rom_ids and sync_enabled(g.platform)]
+                summary = SyncEngine().reconcile(games, srv=self.srv, discover_remote=True, scope=rom_ids,
+                                                 force=self.app_cfg.FORCE_PUSH_SYNC, all_games=all_games)
+                logger.info(f"[ROMMSYNC] {self._fmt(summary)}")
+                STATE.sync_finished(summary)
+                self._auto_prune(rom_ids)
+            except Exception as e:
+                logger.error(f"[ROMMSYNC] Failed! {e}")
+                STATE.sync_finished(error=f"Sync failed: {e}")
 
 
-SyncOrchestrator.romm_sync = _romm_sync
-SyncOrchestrator._auto_prune = _auto_prune_impl
+    def _auto_prune(self, rom_ids: Optional[set] = None):
+        keep = int(getattr(self.app_cfg, "ROMM_KEEP_VERSIONS", 0) or 0)
+        if keep > 0:
+            try:
+                from . import manage
+                manage.auto_prune(self.srv, self.lcl, keep, rom_ids)
+            except Exception as e:  # noqa: BLE001
+                logger.error(f"Removing old RomM versions failed: {e}")
 
 
 class WatchdogSyncManager:
