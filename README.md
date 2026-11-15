@@ -20,7 +20,7 @@ Use both, or either one on its own. Made for Unraid; runs on any Linux Docker ho
 
 <picture>
   <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/dashboard-light.png">
-  <img alt="romm_tools dashboard: sync progress, items waiting for approval, systems and games with RomM covers and save-state screenshots; the menu has Dashboard, Saves, Platforms, Recycle bin, Frontend links, RomM library, Logs and Settings" src="docs/screenshots/dashboard-dark.png">
+  <img alt="romm_tools dashboard: sync progress, a note about a Grout handheld, the getting-started list and items waiting for approval; the menu has Dashboard, Saves, ROMs, Logs and Settings" src="docs/screenshots/dashboard-dark.png">
 </picture>
 
 | Frontend links | RomM library | Conflict resolution |
@@ -57,15 +57,15 @@ Use both, or either one on its own. Made for Unraid; runs on any Linux Docker ho
 | Area | What it does |
 |---|---|
 | Two-way sync | Saves and states that changed on one side sync by themselves, in both directions. You're only asked when a file changed on both sides, was deleted on one side but changed on the other, or two copies differ with no history. |
-| Dashboard | Live progress, every system with a status bar, every game with its RomM cover and latest save-state screenshot, and what needs your attention. |
+| Dashboard | Live progress, every system with a status bar, what needs your attention, and a *Finish setting up* list on a new install. Counts and systems open the matching page. |
 | Conflicts | Nothing is overwritten: compare both versions side by side, keep one or both. Backups are made before any overwrite. |
-| Saves page | Every save and state on both sides with filters, bulk delete/download/upload, version history (put back any copy), `.zip` export, and linking saves to RomM games by hand. |
+| Saves page | Every save and state on both sides, opening on what isn't in sync, with what the next sync does, filters, bulk delete/download/upload, version history (put back any copy), `.zip` export, linking saves to RomM games by hand, and a card view with covers and screenshots. |
 | Deletions | Synced both ways through a recycle bin, with safety rails (only unchanged files, never more than 10 at once). |
 | Platforms | Each system folder of your saves matched to a RomM platform, using RomM's own platform list and folder aliases. |
 | RomM devices | romm_tools registers as a RomM device (RomM 5.4+), so RomM refuses to overwrite a save that changed meanwhile; pair with RomM by code instead of an API token; works with RomM 5.5's save snapshots. |
 | Devices page | For each save, which device last synced it and whether it's up to date, plus your Syncthing devices. |
 | Standalone emulators | DuckStation and PCSX2 memory cards, Dolphin GameCube saves, PPSSPP save folders: per-game saves as RomM saves, shared cards as RomM memory cards. |
-| RetroArch Cloud Sync | Per system: synced by romm_tools, left to RetroArch Cloud Sync, or off; a warning when both sync the same games. Emulator per system, with approval for saves written by another emulator. |
+| Grout, RetroArch Cloud Sync | Handhelds with Grout (NextUI, Knulli, Batocera, muOS) and RetroArch Cloud Sync meet romm_tools in RomM. One game's save is one save whatever a device calls it (`Game.srm`, NextUI's `Game.gba.sav`, `Game.sav`), named the way each folder expects. Per system: synced by romm_tools, RetroArch Cloud Sync, Grout, or off. Emulator per system, with approval for saves written by another emulator. |
 | Settings, notifications | Change behaviour from the page; Discord, ntfy, Gotify, Pushbullet or webhook notifications; optional Syncthing integration. |
 | Disks sleep | RomM is polled through its API; your folders are only re-read when something changed. |
 
@@ -80,7 +80,7 @@ Use both, or either one on its own. Made for Unraid; runs on any Linux Docker ho
 
 ### Shared
 
-One port, one menu, RomM's look in light and dark, one optional password, one log (**Logs**
+One port, one grouped menu (a single ☰ button on phones) with the same top bar on every page, RomM's look in light and dark, one optional password, one log (**Logs**
 page), one app data folder, a Docker health check, an Unraid template, and a release with a Docker
 image for every change.
 
@@ -267,7 +267,7 @@ needs it.
 | `GET /api/status` · `POST /api/sync` | Everything the dashboard shows · sync now |
 | `POST /api/actions/{id}` · `POST /api/actions/bulk` | Approve / reject / resolve pending items |
 | `POST /api/errors/retry` · `POST /api/errors/dismiss` | Failed files |
-| `GET /api/platforms` · `POST /api/platforms/refresh` · `PUT /api/platforms/mapping` · `PUT /api/platforms/mode {folder, mode}` · `PUT /api/platforms/emulator {folder, emulator}` | Platforms page (`mode`: `sync`, `off` or `cloud` = RetroArch Cloud Sync; `/enabled` still works) |
+| `GET /api/platforms` · `POST /api/platforms/refresh` · `PUT /api/platforms/mapping` · `PUT /api/platforms/mode {folder, mode}` · `PUT /api/platforms/save-names {folder, style}` · `PUT /api/platforms/emulator {folder, emulator}` | Platforms page (`mode`: `sync`, `off`, `cloud` = RetroArch Cloud Sync or `grout`; `style`: `auto`, `retroarch`, `minui`, `generic`, `keep`; `/enabled` still works) |
 | `GET /api/devices[?fresh=true]` | Devices page: RomM devices, which device holds which save, Syncthing devices |
 | `GET /api/romm/device` · `POST /api/romm/pair/start` · `/cancel` · `/forget` | RomM device registration and pairing |
 | `GET /api/emulators` · `POST /api/emulators {kind, path, platform}` · `DELETE /api/emulators/{id}` · `POST /api/emulators/sync` · `PUT /api/emulators/link` | Standalone emulator folders |
@@ -310,7 +310,7 @@ src/config.py            settings from the environment, SAVE_SYNC / ROM_FOLDERS 
 src/sync_orchestrator.py save sync loop: watch / periodic, RomM poller      (amn-96, extended)
 src/sync_engine.py       transfers, backups, conflicts, emulator checks      (fork)
 src/sync_rules.py        the two-way decision rule (pure; docs/TWO_WAY_SYNC.md)
-src/sync_files.py        local files, fingerprints, dates and names
+src/sync_files.py        local files, fingerprints, dates and names; save name styles (Grout/NextUI)
 src/sync_errors.py       errors in plain words
 src/sync_state.py        sync history, pending approvals, log sink           (fork)
 src/library_classes.py   local library scan and RomM matching                (amn-96, extended)
@@ -327,6 +327,7 @@ src/notify.py            notifications                                       (fo
 src/syncthing.py         Syncthing integration (read-only)                   (fork)
 src/version.py           version and update check
 src/web_static/common.css styles both pages share (RomM's design tokens, top bar)
+src/web_static/common.js  script both pages share (the grouped menu, the phone menu, Sync now)
 src/mapper/server.py     ROM folders (FastAPI app under /roms/): mapping storage, source folders,
                          scan, resync, scheduler, RomM library endpoints     (ROM Mapper)
 src/mapper/names.py      Game names endpoints

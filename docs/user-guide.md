@@ -60,8 +60,11 @@ startup how many system folders it found; an empty folder usually means the host
 
 ## 4. The dashboard: what needs you
 
-The first sync starts as soon as the container is up. Anything that changed on only one side syncs
-by itself. **Needs your attention** lists what doesn't:
+The first sync starts as soon as the container is up. On a new install the dashboard shows
+**Finish setting up**: the steps still to do (a RomM platform for every system folder, say), each with
+a button that takes you there. The counts under the status (*unmatched*, *conflicts*…) can be
+clicked too. Anything that changed on only one side syncs by itself. **Needs your attention** lists
+what doesn't:
 
 - **Conflicts** - a file changed in your folder *and* on RomM. Click **Resolve…** to compare them
   side by side and keep the folder version, the RomM version, or both.
@@ -70,27 +73,35 @@ by itself. **Needs your attention** lists what doesn't:
   more than 10 deletions came at once, which looks like an unmounted share).
 
 Everything that is overwritten or deleted is kept first: backups in `/data/backups`, deleted files
-in the **Recycle bin**. The **Saves** page lists every save and state on both sides, with version
-history, bulk actions and *Link to a RomM game…* for saves whose names don't match a ROM.
+in the **Recycle bin**. The **Saves** page (menu: *Saves ▾*) lists every save and state on both sides,
+opening on what isn't in sync yet, with version history, bulk actions, *Link to a RomM game…* for saves
+whose names don't match a ROM, and a **Cards** view with covers and screenshots. On a phone, the whole
+menu is behind the **☰** button.
 
 ## 5. Platforms, settings and notifications
 
 - **Platforms** shows which RomM platform each system folder of your saves matches. Most match by
-  themselves; pick one for the rest (the number on the menu item counts them), or switch a system's
-  sync off.
+  themselves; the ones that don't are listed first: pick one (the number on the menu item counts them).
+  **Options** (⚙) on a row: who syncs it, how saves are named, which emulator writes them.
 - **Settings** changes how sync behaves (ask first or automatic, deletions, intervals, backups,
-  dry run, password) without restarting the container.
+  dry run, password) without restarting the container, one tab per part; **Save settings** saves
+  everything you changed, notifications included.
 - **Settings → Notifications** sends questions, failures and sync problems to Discord, ntfy,
   Gotify, Pushbullet or a webhook. **Send test** checks it.
 - **Settings → Syncthing** (optional) waits for Syncthing to finish receiving a file before syncing
   it, and shows your devices on the dashboard.
-- **Platforms → Synced by**: if a device syncs a system with RomM through RetroArch Cloud Sync, set that
-  system to *RetroArch Cloud Sync* so the saves don't travel two ways. **Emulator** (optional) makes a
+- **Handhelds with Grout** (NextUI, Knulli, Batocera, muOS…) need nothing here: they sync with RomM,
+  romm_tools picks their saves up from RomM, and a NextUI `Game.gba.sav` becomes `Game.srm` in a
+  RetroArch folder (and back) as the same save. **Options → Save names** changes how a folder names them.
+- **Platforms → Options → Synced by**: if a device syncs a system with RomM itself (RetroArch Cloud Sync,
+  or Grout on a handheld whose saves folder is also shared with this app), set that system to it so the
+  saves don't travel two ways. **Emulator** (optional) makes a
   save written by another emulator wait for your approval.
 - **Settings → Standalone emulators**: add DuckStation or PCSX2 memory card folders, Dolphin's `GC`
   folder or PPSSPP's `SAVEDATA` folder (mounted into the container first). Click a *Not matched* save
   to link it to its RomM game.
-- **Devices** shows, for each save, which device last synced it and whether it's up to date.
+- **Devices** shows, for each save, which device last synced it (this app, Grout, RetroArch…) and
+  whether it's up to date.
 
 ## 6. Choose your source folders
 

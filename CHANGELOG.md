@@ -9,6 +9,53 @@ romm_tools continues two projects; their own changelogs are kept as they were:
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-11-15
+
+Works alongside Grout on handhelds (NextUI, Knulli, Batocera, muOS), and an easier page to find your
+way around. Existing setups keep working: settings, data folder and stored files are unchanged.
+
+### New
+- **Grout and NextUI save names.** A handheld with Grout uploads its saves to RomM under its own
+  name: NextUI's `Game (USA).gba.sav` where RetroArch uses `Game (USA).srm`. romm_tools now treats
+  `Game.srm`, `Game.sav` and `Game.gba.sav` of one game as the same save: a download is named the way
+  the folder expects, and an upload updates the save the handheld made instead of adding a second one.
+- **Save names per system** (Platforms → Options): Automatic (like the saves already in the folder),
+  RetroArch (`.srm`), MinUI / NextUI (`.gba.sav`), Generic (`.sav`) or RomM's name.
+- **Grout** as a *Synced by* choice on the Platforms page, for a handheld whose saves folder is also
+  shared with this app through Syncthing. The dashboard shows a note when RomM knows a Grout device.
+- **Getting started**: on a new install the dashboard lists what's left to do (RomM connected, system
+  folders found and matched, plus the optional device registration and Syncthing), each with a button.
+- **Settings tabs**: Sync, RomM, Emulators, Syncthing, Notifications and Access (`#settings/romm` opens
+  one directly).
+
+### Improved
+- **Menu**: grouped into Dashboard, Saves ▾ (Saves, Platforms, Devices, Recycle bin), ROMs ▾ (Frontend
+  links, RomM library, Game names), Logs and Settings. On a phone it's one ☰ button instead of a row
+  that scrolled off the screen. The ROM folders pages have the same top bar, with the connection and
+  **Sync now**.
+- **Dashboard**: shorter. The game cards moved to the Saves page (**Cards**); clicking a system opens
+  the Saves page for it, and the counts (*unmatched*, *in sync*, *conflicts*, *failed*) open the
+  matching list.
+- **Saves page**: opens on *Not in sync* when anything isn't, and a file marked *Different* says what the
+  next sync does with it (uploads, downloads, or asks you).
+- **Platforms page**: folders without a platform come first; who syncs a folder, its save names and its
+  emulator are under one **Options** button, with a chip on the row when they're not the default.
+- **Settings**: times are a number and a unit (10 minutes) instead of seconds; fields for the other sync
+  mode are hidden; notifications are saved with **Save settings** like everything else.
+- **Devices page**: each device is labelled (this app, Grout, RetroArch), and one game's save is one row
+  even when devices name it differently.
+- **ROM folders**: with no frontend yet, the grid explains how to add one; the storage paths are folded
+  into one line.
+- Built-in folder names for NextUI: `mgba`, `supa`, `sgb`, `gg`, `sms`, `pce`, `pkm`, `ws`/`wsc`,
+  `lynx`, `p8`.
+
+### Fixed
+- PC Engine folders (`pcengine`, `pc-engine`, `tg16`, `turbografx`…) were mapped to the PC Engine **CD**
+  platform; they now point at TurboGrafx-16/PC Engine (`tg16`), and `pcenginecd` at the CD system. A
+  saved mapping that still has the old entries is fixed at startup.
+- The RetroArch Cloud Sync check could skip RomM's device list during the first hour after the host
+  started.
+
 ## [2.0.0] - 2026-11-15
 
 Ready for RomM's own device sync and RomM 5.5, saves of standalone emulators, and a tidier app

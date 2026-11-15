@@ -40,8 +40,10 @@ and tests create real symlinks - run the tests on Linux (CI: `.github/workflows/
   (`api/...`, `../api/...`) - never `"/api/...`; the menus link `roms/#links`, `roms/#romm` and
   `../#saves` etc. Basic auth covers everything but `/api/health`.
 - Both pages share RomM's design tokens and the top bar from `src/web_static/common.css` (served at
-  `/common.css`; the ROM folders page links `../common.css`) and the `rs-theme` localStorage key; keep
-  the menu the same on both.
+  `/common.css`; the ROM folders page links `../common.css`), the menu script `src/web_static/common.js`
+  (`/common.js`: the menu groups, the phone menu button, `RT.syncControls` for the ROM folders page's
+  Sync now) and the `rs-theme` localStorage key; keep the menu the same on both (Dashboard, Saves ▾,
+  ROMs ▾, Logs, Settings - `tests/test_romm_tools.py` checks it). Settings tabs: `#settings/<tab>`.
 - RomM is reached only through `src/romm_client.py` (`RommClient`, alias `RommUser`): one session,
   timeouts, `RommUnreachable` / `RommAuthError` / `RommConflict`. Newer RomM endpoints are used only
   when the server has them (`at_least`, 404/405 tolerated); the mock RomM (`tests/mock_romm.py`,
@@ -66,6 +68,11 @@ and tests create real symlinks - run the tests on Linux (CI: `.github/workflows/
   RomM's copy changed - never force it, let the next sync offer a conflict (`overwrite` only when the
   user chose "keep mine"). A 409 on replacing (RomM 5.5 snapshot) -> upload as a new version.
   The paired token lives in `/data/romm_device.json` (mode 600).
+- Save names (`src/sync_files.py` `save_style` / `name_in_style` / `remote_local_name`): a game's
+  in-game save is one file whether it's `Game.srm`, `Game.gba.sav` (NextUI, what Grout uploads) or
+  `Game.sav`; downloads follow the folder's style (Platforms → Options → Save names, stored as
+  `folder_save_names` in settings.json), updates keep RomM's name. Grout is a folder mode like `cloud`
+  (`grout_folders`). States and other save types are never renamed.
 - Standalone emulators (`src/emusaves.py`): per-game units -> RomM saves (PPSSPP as RomM's
   `PSP-<folder>.zip`), shared cards -> RomM memory cards; baseline keys `emu:<folder id>:<name>`;
   deletions are not carried over for these units.

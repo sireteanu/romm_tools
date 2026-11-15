@@ -60,6 +60,18 @@ def test_menus_link_the_two_parts():
     assert 'href="roms/#links"' in sync_page and 'href="roms/#romm"' in sync_page
     assert 'href="../#saves"' in rom_page and 'href="../#settings"' in rom_page
     assert '"/api/' not in rom_page                                   # absolute addresses would miss /roms/
+    # the same grouped menu on both pages (romm_tools 2.1): Dashboard, Saves ▾, ROMs ▾, Logs, Settings
+    import re
+    for page in (sync_page, rom_page):
+        groups = re.findall(r'<div class="grp" data-label="([^"]+)"', page)
+        assert groups == ["Saves", "ROMs"] and 'class="menu-btn"' in page and "common.js" in page
+
+
+def test_shared_files_are_served(client):
+    c = client()
+    assert c.get("/common.css").status_code == 200
+    js = c.get("/common.js")
+    assert js.status_code == 200 and "javascript" in js.headers["content-type"] and "syncControls" in js.text
 
 
 def test_only_rom_folders_opens_on_the_rom_folders_page(client):

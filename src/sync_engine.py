@@ -35,8 +35,9 @@ from .config import get_config
 from .games_class import Game
 from .sync_state import STATE, PendingAction, ProgressReporter, data_dir, utcnow_iso
 
-from .sync_files import (CONFLICT_MARKER, KIND_API, LocalFile, cached_md5, file_key, local_name_for_remote,  # noqa: F401
-                         md5_file, parse_dt, same_time, save_hash_cache)
+from .sync_files import (CONFLICT_MARKER, KIND_API, LocalFile, cached_md5, file_key,  # noqa: F401
+                         md5_file, parse_dt, same_time, save_hash_cache, remote_local_name, save_alias,
+                         detect_save_style, _VERSION_TAG)
 from .sync_rules import Decision, decide  # noqa: F401
 from .sync_errors import explain_error  # noqa: F401
 from .romm_client import RommConflict
@@ -49,20 +50,31 @@ def same_emulator(a: str, b: str) -> bool:
     return norm(a) == norm(b)
 
 
-_ra_cache: dict = {"at": 0.0, "ids": set()}
+_dev_cache: dict = {"at": None, "devices": []}
+
+
+def _romm_devices(client) -> list:
+    """RomM's device list (RomM 5.4+, needs devices.read), cached for an hour; [] if it can't be read."""
+    import time
+    if _dev_cache["at"] is not None and time.monotonic() - _dev_cache["at"] < 3600:
+        return _dev_cache["devices"]
+    try:
+        devices = list(client.list_devices())
+    except Exception:  # noqa: BLE001
+        devices = []
+    _dev_cache.update(at=time.monotonic(), devices=devices)
+    return devices
 
 
 def retroarch_devices(client) -> set:
-    """Ids of the RetroArch Cloud Sync devices RomM knows (RomM 5.4+, needs devices.read). Cached for an hour."""
-    import time
-    if time.monotonic() - _ra_cache["at"] < 3600:
-        return _ra_cache["ids"]
-    try:
-        ids = {d["id"] for d in client.list_devices() if (d.get("client") or "").lower() == "retroarch"}
-    except Exception:  # noqa: BLE001
-        ids = set()
-    _ra_cache.update(at=time.monotonic(), ids=ids)
-    return ids
+    """Ids of the RetroArch Cloud Sync devices RomM knows."""
+    return {d["id"] for d in _romm_devices(client) if (d.get("client") or "").lower() == "retroarch"}
+
+
+def grout_devices(client) -> list:
+    """Names of the Grout handhelds RomM knows (Grout: RomM's app for NextUI, Knulli, Batocera, muOS...)."""
+    from .device_overview import client_kind
+    return sorted(d.get("name") or d["id"] for d in _romm_devices(client) if client_kind(d) == "grout")
 
 
 class SyncEngine:
@@ -90,33 +102,65 @@ class SyncEngine:
         return out
 
     @classmethod
-    def _remote_for_rom(cls, remote, rom_id: int, rom_row: Optional[dict]) -> Dict[str, Dict[str, dict]]:
+    def _remote_for_rom(cls, remote, rom_id: int, rom_row: Optional[dict],
+                        style: Optional[str] = None) -> Dict[str, Dict[str, dict]]:
         """RomM files for one ROM as {"save": {name: item}, "state": {name: item}}, classified by the name they
         get in the sync folder, not by which RomM list they're in: other clients sometimes upload states
-        ("Game.state1") to RomM's saves list. The newest item wins when several map to the same name."""
+        ("Game.state1") to RomM's saves list. The newest item wins when several map to the same name.
+        style: how the folder names its saves (sync_files.name_in_style), so a handheld's "Game.gba.sav" and
+        this folder's "Game.srm" are the same file."""
         from .library_classes import LibraryScanner
         items = list(remote["save"].get(rom_id, [])) + list(remote["state"].get(rom_id, []))
         out: Dict[str, Dict[str, dict]] = {"save": {}, "state": {}}
         groups: Dict[str, list] = {}
         for it in items:  # every RomM version of a file (5.x keeps several), so a delete removes them all
-            groups.setdefault(local_name_for_remote(it, rom_row), []).append((it.get("_api"), it["id"]))
-        for name, it in cls._latest_by_name(items, rom_row).items():
+            groups.setdefault(remote_local_name(it, rom_row, style), []).append((it.get("_api"), it["id"]))
+        for name, it in cls._latest_by_name(items, rom_row, style).items():
             it["_group"] = groups.get(name, [(it.get("_api"), it["id"])])
             _, ftype = LibraryScanner.parse_save_filename(name)
             out["state" if ftype in ("state", "state_screen") else "save"][name] = it
         return out
 
     @staticmethod
-    def _latest_by_name(items: List[dict], rom_row: Optional[dict] = None) -> Dict[str, dict]:
+    def _latest_by_name(items: List[dict], rom_row: Optional[dict] = None,
+                        style: Optional[str] = None) -> Dict[str, dict]:
         """RomM files by the name they get in the sync folder; if several map to one name, the newest wins."""
         latest: Dict[str, dict] = {}
         for it in items:
-            name = local_name_for_remote(it, rom_row)
+            name = remote_local_name(it, rom_row, style)
             cur = latest.get(name)
             if cur is None or (parse_dt(it.get("updated_at")) or datetime.min.replace(tzinfo=timezone.utc)) > \
                     (parse_dt(cur.get("updated_at")) or datetime.min.replace(tzinfo=timezone.utc)):
                 latest[name] = it
         return latest
+
+    @staticmethod
+    def save_styles(games) -> Dict[str, Optional[str]]:
+        """Per system folder (lower case): how its saves are named. The Platforms page setting, else what most
+        of the saves already there use, else None (see sync_files.name_in_style)."""
+        from .settings import folder_save_names
+        names: Dict[str, list] = {}
+        for g in games:
+            names.setdefault(g.platform.lower(), []).extend(sf.path.name for sf in g.local_save_files)
+        out: Dict[str, Optional[str]] = {k: detect_save_style(v) for k, v in names.items()}
+        try:
+            out.update(folder_save_names())
+        except Exception:  # noqa: BLE001
+            pass
+        return out
+
+    @staticmethod
+    def pair_save_aliases(local: dict, rbt: dict) -> None:
+        """A RomM save still under another style's name ("Game.sav" next to the folder's "Game.srm", e.g. a folder
+        that mixes styles) is the same save as the one local save of that game: pair them."""
+        local_saves = [n for (ft, n) in local if ft == "save"]
+        for name in [n for n in rbt["save"] if ("save", n) not in local]:
+            alias = save_alias(name)
+            if alias is None:
+                continue
+            mates = [n for n in local_saves if n not in rbt["save"] and save_alias(n) == alias]
+            if len(mates) == 1:
+                rbt["save"][mates[0]] = rbt["save"].pop(name)
 
     @staticmethod
     def local_files(game: Game) -> Dict[Tuple[str, str], LocalFile]:
@@ -165,6 +209,7 @@ class SyncEngine:
         self._local_names: Dict[str, set] = {}  # platform folder -> local game names (incl. unmatched)
         for g in (all_games if all_games is not None else games):
             self._local_names.setdefault(g.platform.lower(), set()).add(g.name)
+        self._styles = self.save_styles(all_games if all_games is not None else games)
 
         if full:  # full sync: duplicate warnings are re-detected from scratch
             with STATE.lock:
@@ -199,6 +244,7 @@ class SyncEngine:
             if stale:
                 logger.info(f"Removed {len(stale)} queued item(s) that no longer apply.")
             self._check_cloud_sync_overlap(matched, remote)
+            STATE.grout_devices = grout_devices(self.romm) if self.romm is not None else []
 
         STATE.save()
         save_hash_cache(prune=full)
@@ -207,7 +253,9 @@ class SyncEngine:
     def _reconcile_game(self, game: Game, remote, pull_mode, force, summary):
         local = self.local_files(game)
         file_status: Dict[str, str] = {}
-        remote_by_type = self._remote_for_rom(remote, game.romm_id, game.romm_row)
+        remote_by_type = self._remote_for_rom(remote, game.romm_id, game.romm_row,
+                                              getattr(self, "_styles", {}).get(game.platform.lower()))
+        self.pair_save_aliases(local, remote_by_type)
         remote_ids = {it["id"] for it in remote["save"].get(game.romm_id, []) + remote["state"].get(game.romm_id, [])}
         from .library_classes import LibraryScanner
         other_local = self._local_names.get(game.platform.lower(), set()) - {game.name}
@@ -365,6 +413,9 @@ class SyncEngine:
                 game = Game(name=game_name, path=folder / game_name, platform=folder.name)
                 game.set_romm_data(row)
                 shown = shown or game
+                style = getattr(self, "_styles", {}).get(folder.name.lower())
+                if style and ft == "save":
+                    files["save"] = self._remote_for_rom(remote, rom_id, row, style)["save"]
                 for name, rf in files[ft].items():
                     if (folder / name).exists():
                         # Already in the sync folder under another ROM (e.g. a copy an older version attached to
@@ -507,6 +558,10 @@ class SyncEngine:
         local_hash = action.local_hash or md5_file(path)
         extra = dict(content_hash=local_hash, emulator=emulator_for(action.platform),
                      overwrite=action.kind == "conflict")   # a conflict resolved as "keep mine" may overwrite
+        romm_name = _VERSION_TAG.sub("", action.romm_file_name or "")
+        if action.romm_id and romm_name and romm_name != path.name and save_alias(romm_name) == save_alias(path.name) \
+                and save_alias(romm_name) is not None:
+            extra["upload_name"] = romm_name   # e.g. Grout's "Game.gba.sav": keep the name the handheld knows
         try:
             resp = self.romm.upload(kind, path, action.rom_id, action.romm_id, screenshot, **extra)
         except RommConflict:

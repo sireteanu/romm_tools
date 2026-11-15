@@ -61,17 +61,24 @@ def inventory() -> List[dict]:
         rom_row = rom_row or {}
         key = file_key(ft, rom_id, name) if rom_id else None
         status = "folder" if rf is None else ("romm" if lf is None else "both")
+        nxt = None   # what the next sync does with a file that differs: up | down | ask
         if status == "both":
             b = STATE.get_baseline(key) or {}
             same = (b.get("local_hash") == lf.hash and b.get("romm_id") == rf.get("id")) or \
                    (rf.get("content_hash") and rf.get("content_hash") == lf.hash)
             status = "both" if same else "different"
+            if not same:
+                waiting = key and any(a.key == key and a.status == "pending" for a in list(STATE.pending.values()))
+                local_same = b and b.get("local_hash") == lf.hash
+                romm_same = b and b.get("romm_id") == rf.get("id") and (
+                    not rf.get("content_hash") or not b.get("romm_hash") or b.get("romm_hash") == rf.get("content_hash"))
+                nxt = "ask" if waiting or not b or (not local_same and not romm_same) else "down" if local_same else "up"
         group = [tuple(x) for x in (rf or {}).get("_group", [])] if rf else []
         shot = (rf or {}).get("screenshot")
         out[row_id] = {
             "id": row_id, "game": game_name, "platform": platform,
             "system": rom_row.get("platform_display_name") or platform,
-            "rom_id": rom_id, "matched": bool(rom_id), "type": ft, "name": name, "status": status,
+            "rom_id": rom_id, "matched": bool(rom_id), "type": ft, "name": name, "status": status, "next": nxt,
             "match_how": match_how, "local_game": local_game,
             "romm_name": rom_row.get("name"), "romm_file": rom_row.get("fs_name"),
             "local": None if lf is None else {"size": lf.size, "mtime": lf.mtime.isoformat(),
@@ -85,9 +92,12 @@ def inventory() -> List[dict]:
             "_lf": lf, "_rf": rf, "_group": group, "_dest": local_dest, "_key": key,
         }
 
+    styles = eng.save_styles(lcl.games.values())
     for g in lcl.games.values():
         local = eng.local_files(g)
-        rbt = eng._remote_for_rom(remote, g.romm_id, g.romm_row) if g.is_matched and g.romm_id else {"save": {}, "state": {}}
+        rbt = eng._remote_for_rom(remote, g.romm_id, g.romm_row, styles.get(g.platform.lower())) \
+            if g.is_matched and g.romm_id else {"save": {}, "state": {}}
+        eng.pair_save_aliases(local, rbt)
         if g.is_matched:
             seen_roms.add(g.romm_id)
         others = names_by_platform.get(g.platform.lower(), set()) - {g.name}
@@ -125,6 +135,8 @@ def inventory() -> List[dict]:
         game_name = row.get("fs_name_no_ext") or Path(row.get("fs_name") or str(rom_id)).stem
         for ft in ("save", "state"):
             folder = next((f for f in folders[ft] if srv.local_folder_matches_slug(f.name, row["platform_slug"])), None)
+            if folder is not None and ft == "save" and styles.get(folder.name.lower()):
+                files["save"] = eng._remote_for_rom(remote, rom_id, row, styles[folder.name.lower()])["save"]
             for name, rf in files[ft].items():
                 if (rf.get("_api"), rf["id"]) in taken_remote:
                     continue
@@ -322,7 +334,8 @@ def _bin_versions(eng, olds, name, ft, game, platform, rom_id, restore_path: str
 def auto_prune(srv, lcl, keep: int, rom_ids: Optional[set] = None) -> int:
     """Keep the newest `keep` RomM versions of every file (plus the one the sync is paired with); move older ones
     to the recycle bin. Uses RomM's lists only; doesn't read the sync folders."""
-    from .sync_engine import SyncEngine, file_key, local_name_for_remote
+    from .sync_engine import SyncEngine, file_key
+    from .sync_files import local_name_for_remote
     if not keep or keep < 1 or srv is None:
         return 0
     eng = SyncEngine()

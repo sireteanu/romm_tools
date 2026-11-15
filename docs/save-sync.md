@@ -12,7 +12,7 @@ are in the [README](../README.md). This page is the full reference for save sync
 
 <picture>
   <source media="(prefers-color-scheme: light)" srcset="screenshots/dashboard-light.png">
-  <img alt="Save sync dashboard: sync progress, items waiting for approval, systems and games with RomM covers and save-state screenshots" src="screenshots/dashboard-dark.png">
+  <img alt="Save sync dashboard: sync progress, a note about a Grout handheld, the getting-started list and items waiting for approval" src="screenshots/dashboard-dark.png">
 </picture>
 
 ## Features
@@ -114,6 +114,15 @@ Files pulled from RomM are written into the same `<sync folder>/<system folder>/
 
 ### Still not a full RomM client
 This doesn't download ROMs or manage your library. For devices that can run a real RomM client (e.g. Grout), that's still the better choice. This tool is for the devices that can't.
+
+### Grout on handhelds (NextUI, Knulli, Batocera, muOS…)
+[Grout](https://grout.romm.app) is RomM's app for handhelds: it syncs the handheld's saves with RomM itself. romm_tools works alongside it through RomM — a save played on the handheld reaches RomM through Grout, and your PC (or any other Syncthing device) through romm_tools, and back the same way. Nothing to set up.
+
+The one thing that differs is the name. Grout uploads a save under the handheld's own name: NextUI's default is the ROM's file name plus `.sav` (`Game (USA).gba.sav`), where RetroArch uses `Game (USA).srm`. romm_tools treats these as **one save**: `Game.srm`, `Game.sav` and `Game.gba.sav` of the same game are paired, a download is named the way the folder expects, and an upload updates the save Grout made under the name Grout knows (instead of adding a second save to RomM).
+
+How downloads are named in each system folder is set under *Options* on the Platforms page (**Save names**): *Automatic* (like the saves already in the folder, `.srm` when it's empty), *RetroArch* (`Game.srm`), *MinUI / NextUI* (`Game.gba.sav`), *Generic* (`Game.sav`) or *RomM's* (the name on RomM). Only in-game saves (`.srm` / `.sav`) are renamed; states, `.bkr`, `.dsv` and the like keep their names.
+
+Only if a handheld's saves folder is **also** shared with romm_tools through Syncthing do two paths carry the same save: set those systems to *Grout* (Platforms page → *Options* → *Synced by*). The dashboard shows a note when RomM knows a Grout device. Grout doesn't sync save states; and if the handheld loads a state automatically at start, that state may win over a newer synced save (Grout's docs say the same).
 
 ### RetroArch Cloud Sync
 Since RomM 5.4, RetroArch can sync saves straight with RomM (RetroArch's *Cloud Sync* pointed at RomM). If a device does that **and** its saves also reach RomM through Syncthing and romm_tools, the same save travels two ways and can bounce back and forth. Pick one path per system on the Platforms page (*Synced by*: romm_tools, RetroArch Cloud Sync, or not synced). The dashboard warns when RetroArch Cloud Sync uploads saves for games romm_tools also syncs (needs romm_tools registered as a device, see below).
@@ -218,7 +227,7 @@ A full sync now fetches all saves and states in two API calls instead of two per
 
 The **Saves** page lists every save and state, in your sync folders and on RomM, grouped by game. For each one it shows the size and age of the copy in your folder and on RomM, how many versions RomM holds, and whether the two copies match.
 
-Filter by system, saves or states, or by where a file is (*In both*, *Folder only*, *RomM only*, *Different*, *Old versions*). Tick single files, whole games, or everything shown, then:
+Filter by system, saves or states, or by where a file is (*Not in sync*, *In both*, *Folder only*, *RomM only*, *Different*, *Old versions*, *Not matched*). The page opens on *Not in sync* when anything is; a file marked *Different* says what the next sync does with it (*uploads*, *downloads*, or *asks you*). **Cards** at the top shows the same games as cards with their cover and latest screenshot (this used to be on the dashboard); clicking a system on the dashboard opens this page for that system. Tick single files, whole games, or everything shown, then:
 - **Delete**: removes the files from your sync folder **and** RomM (every RomM version). Copies go to the recycle bin first. If the RomM copy differs from yours, both copies are kept in the bin.
 - **Remove old RomM versions**: RomM 5.x keeps a copy every time a file is uploaded. This keeps the newest and moves the older ones to the recycle bin. Your folder isn't changed.
 - **Download to folder** (files only on RomM) and **Upload to RomM** (files only in your folder that are matched to a RomM game).
@@ -248,6 +257,8 @@ Safety rails:
 
 ### Web UI
 
+The menu groups the pages: **Dashboard**, **Saves** (Saves, Platforms, Devices, Recycle bin), **ROMs** (Frontend links, RomM library, Game names), **Logs** and **Settings**. On a phone or a narrow window it folds into one **☰ Menu** button. The dashboard opens with a short *Finish setting up* list on a new install (RomM connected, system folders found and matched to platforms, plus the optional device registration and Syncthing); its counts (*unmatched*, *conflicts*…) open the matching page or list.
+
 | Variable | Default | |
 |---|---|---|
 | `WEB_UI` | true | turn the web page off with `false` (both parts keep running) |
@@ -262,9 +273,13 @@ Each system folder in your sync folders (`snes`, `md`, `Nintendo 64`, …) has t
 
 ![Platforms page: each sync folder with the RomM platform it matches, how it was matched, and a searchable picker](screenshots/platforms.png)
 
-**Synced by** on each row: *romm_tools* (default), *RetroArch Cloud Sync* (RetroArch syncs this system with RomM itself, so romm_tools leaves it alone), or *Not synced* (for example arcade). Its files are left alone in both directions until you change it back.
+Folders without a platform are listed first. **Options** (⚙) on each row holds three settings; anything not at its default shows as a chip on the row:
 
-**Emulator** (optional) on each row: the emulator that writes this folder's saves (`mgba`, `snes9x`, `duckstation`, …). It's sent to RomM with uploads, and when RomM's newest copy was written by a different emulator, the download waits for your approval: saves from different emulators often don't load in each other. The Saves page shows which emulator wrote each RomM copy.
+**Synced by**: *romm_tools* (default), *RetroArch Cloud Sync* (RetroArch syncs this system with RomM itself, so romm_tools leaves it alone), *Grout* (a handheld with Grout syncs it; only needed when that handheld's saves folder is also shared with this app) or *Not synced* (for example arcade). Its files are left alone in both directions until you change it back.
+
+**Save names**: how in-game saves downloaded into this folder are named (see *Grout on handhelds* above).
+
+**Emulator** (optional): the emulator that writes this folder's saves (`mgba`, `snes9x`, `duckstation`, …). It's sent to RomM with uploads, and when RomM's newest copy was written by a different emulator, the download waits for your approval: saves from different emulators often don't load in each other. The Saves page shows which emulator wrote each RomM copy.
 
 Folders are resolved in this order, and most never need a mapping:
 
@@ -275,13 +290,13 @@ Folders are resolved in this order, and most never need a mapping:
 
 **Where the platform list comes from:** your own RomM's list of supported platforms (`/api/platforms/supported`), which always matches your RomM version, plus the full list of platforms RomM supports (459 at the time of writing) and RomM's folder aliases are downloaded from GitHub. Slugs and aliases come from [`rommapp/romm`](https://github.com/rommapp/romm), fetched at the tag that matches your RomM server's version when that tag exists, with display names from [`rommapp/docs`](https://github.com/rommapp/docs). The list is cached in `/data/romm_platforms.json` and refreshed weekly, or whenever you click **Update platform list from RomM GitHub**. If GitHub can't be reached, the cached list is used. In the picker, platforms that are already in your RomM library are listed first.
 
-**Starting point:** on first start the mapping is pre-filled with the common MinUI/NextUI and Knulli folder names from the original project (for example `md` and `megadrive` → Sega Mega Drive/Genesis, `sfc` → SNES). After that you manage it only on the Platforms page. Remove an entry with ✕ to fall back to automatic matching. It's stored in `/data`, so it survives updates.
+**Starting point:** on first start the mapping is pre-filled with the common MinUI/NextUI and Knulli folder names from the original project (for example `md` and `megadrive` → Sega Mega Drive/Genesis, `sfc` and `supa` → SNES, `mgba` → Game Boy Advance, `pcengine` and `pce` → TurboGrafx-16/PC Engine, `pcenginecd` → its CD system). romm_tools 2.1 fixes a saved mapping that still sends `pcengine`, `tg16` and the like to the CD platform, as older versions did. After that you manage it only on the Platforms page. Remove an entry with ✕ to fall back to automatic matching. It's stored in `/data`, so it survives updates.
 
 See https://docs.romm.app/latest/Platforms-and-Players/Supported-Platforms/ for RomM's supported platforms.
 
 ### Settings page & notifications
 
-Most behaviour can be changed on the dashboard's **Settings** tab instead of in the container config. Values saved there override the container's and apply immediately. Each one shows whether it comes from the container or was changed in the dashboard, with a **reset** link. Settings are stored in `/data/settings.json`. Saved tokens and passwords are never sent back to the browser.
+Most behaviour can be changed on the dashboard's **Settings** page instead of in the container config. It has a tab for each part: *Sync*, *RomM*, *Emulators*, *Syncthing*, *Notifications* and *Access* (links such as `#settings/romm` open a tab). Times are entered with a unit (10 minutes, 2 hours) and fields for the other sync mode are hidden. Changes, notifications included, are saved together with **Save settings**; values saved there override the container's and apply immediately. Each one shows whether it comes from the container or was changed in the dashboard, with a **reset** link. Settings are stored in `/data/settings.json`. Saved tokens and passwords are never sent back to the browser.
 
 **Notifications.** Add one or more services under Settings → Notifications:
 
@@ -326,7 +341,7 @@ The same rules apply as for the other saves: changes sync both ways, a backup is
 
 ### Devices page
 
-**Devices** in the menu lists, for each save of the games in your sync folders, which device last synced it, when, and whether that device has the newest version (*up to date* / *behind*), with your Syncthing devices on top. RomM keeps this record for devices it knows (RomM 5.4+), so romm_tools has to be registered as a device. Tick *Only saves a device is behind on* to see what a handheld still needs.
+**Devices** in the menu lists, for each save of the games in your sync folders, which device last synced it, when, and whether that device has the newest version (*up to date* / *behind*), with your Syncthing devices on top. Each device is labelled with what it is (*this app*, *Grout*, *RetroArch*), and one game's save counts as one row even when devices name it differently. RomM keeps this record for devices it knows (RomM 5.4+), so romm_tools has to be registered as a device. Tick *Only saves a device is behind on* to see what a handheld still needs.
 
 ![Devices page: each save with the devices that synced it and whether they're up to date](screenshots/devices.png)
 

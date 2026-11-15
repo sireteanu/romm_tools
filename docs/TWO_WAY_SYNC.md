@@ -104,3 +104,16 @@ A full sync reads the RomM library (paginated), then **all** saves and **all** s
   Shared memory cards follow the short version: local changed = MD5 differs from the baseline, RomM
   changed = a newer card version than the baseline's; both changed -> you choose; first sight with
   different content -> the newer side, or you choose if RomM's is newer.
+
+## Additions in romm_tools 2.1
+
+- **One save, several names.** Before the table is applied, a game's in-game save (`.srm` / `.sav`) on
+  RomM is given the name it has in the folder: `Game.srm` (RetroArch), `Game.gba.sav` (MinUI / NextUI,
+  what Grout uploads from a NextUI handheld) and `Game.sav` are the same file. The style comes from the
+  folder's *Save names* setting, else from the saves already in the folder, else MinUI names become
+  `.srm`. RomM copies under several of these names are one file: the newest is compared, and a deletion
+  covers them all. A folder that mixes styles pairs its one save of a game with RomM's under another
+  style. An update keeps RomM's name (`upload_name`), so a handheld's save isn't duplicated. The rules
+  in the table are unchanged.
+- **Grout** is a *Synced by* choice like RetroArch Cloud Sync: the folder is left alone.
+

@@ -37,21 +37,22 @@ FIELDS: Dict[str, dict] = {
                     "help": "Recycle bin: remove it on the other side too, keeping a copy in the recycle bin. "
                             "Ask first: wait for your decision. Never: offer to bring it back instead."},
     "ROMM_POLL_INTERVAL_SECONDS": {"type": "int", "min": 0, "max": 86400, "unit": "seconds", "group": "timing",
-                                   "label": "Check RomM for changes every",
-                                   "help": "Watch mode: how often changes made on RomM (other devices) are picked up. "
+                                   "label": "Check RomM for changes every", "mode": "watch",
+                                   "help": "How often changes made on RomM (other devices) are picked up. "
                                            "0 = only when you press Sync now. Applies from the next check. "
                                            "This only asks RomM; your sync folders are read only when RomM has changes."},
     "FULL_SCAN_INTERVAL_HOURS": {"type": "int", "min": 0, "max": 720, "unit": "hours", "group": "timing",
-                                 "label": "Re-read the sync folders anyway every",
-                                 "help": "Watch mode: a safety net in case a file change was missed. Each one can wake "
+                                 "label": "Re-read the sync folders anyway every", "mode": "watch",
+                                 "help": "A safety net in case a file change was missed. Each one can wake "
                                          "the disks the folders live on. 0 = only at startup and when you press Sync now."},
     "WATCHDOG_DELAY_SECONDS": {"type": "int", "min": 0, "max": 3600, "unit": "seconds", "group": "timing",
-                               "label": "Wait after a file changes",
-                               "help": "Watch mode: quiet time after Syncthing writes a file before syncing it. With the "
+                               "label": "Wait after a file changes", "mode": "watch",
+                               "help": "Quiet time after Syncthing writes a file before syncing it. With the "
                                        "Syncthing integration on, the app also waits until Syncthing reports it's done, "
                                        "so this can be short (e.g. 5 s)."},
     "SYNC_INTERVAL_SECONDS": {"type": "int", "min": 60, "max": 604800, "unit": "seconds", "group": "timing",
-                              "label": "Full sync every", "help": "Periodic mode only."},
+                              "label": "Full sync every", "mode": "periodic",
+                              "help": "Reads your sync folders and RomM and syncs everything."},
     "BACKUP_RETENTION_DAYS": {"type": "int", "min": 0, "max": 3650, "unit": "days", "group": "backups",
                               "label": "Keep backups of overwritten files for",
                               "help": "0 = keep forever. Backups are in /data/backups."},
@@ -216,21 +217,28 @@ def describe(cfg) -> dict:
 
 # region per-system sync switch
 def disabled_folders() -> set:
-    """Folders save sync leaves alone: switched off, or handled by RetroArch Cloud Sync."""
+    """Folders save sync leaves alone: switched off, or synced with RomM directly (RetroArch Cloud Sync, Grout)."""
     data = load()
-    return {f.lower() for f in data.get("disabled_folders", []) + data.get("cloud_sync_folders", [])}
+    return {f.lower() for f in data.get("disabled_folders", []) + data.get("cloud_sync_folders", [])
+            + data.get("grout_folders", [])}
 
 
 def cloud_sync_folders() -> set:
     return {f.lower() for f in load().get("cloud_sync_folders", [])}
 
 
+def grout_folders() -> set:
+    return {f.lower() for f in load().get("grout_folders", [])}
+
+
 def set_folder_mode(folder: str, mode: str) -> None:
-    """mode: 'sync' (this app syncs it), 'off', or 'cloud' (RetroArch Cloud Sync syncs it with RomM directly)."""
-    if mode not in ("sync", "off", "cloud"):
-        raise ValueError("mode must be sync, off or cloud")
+    """mode: 'sync' (this app syncs it), 'off', 'cloud' (RetroArch Cloud Sync syncs it with RomM directly) or
+    'grout' (Grout, RomM's handheld app, syncs it with RomM directly)."""
+    if mode not in ("sync", "off", "cloud", "grout"):
+        raise ValueError("mode must be sync, off, cloud or grout")
     data = load()
-    for key, want in (("disabled_folders", mode == "off"), ("cloud_sync_folders", mode == "cloud")):
+    for key, want in (("disabled_folders", mode == "off"), ("cloud_sync_folders", mode == "cloud"),
+                      ("grout_folders", mode == "grout")):
         cur = [f for f in data.get(key, []) if f.lower() != folder.lower()]
         if want:
             cur.append(folder)
@@ -283,6 +291,28 @@ def set_folder_emulator(folder: str, emulator: str | None) -> None:
     if emulator:
         cur[folder] = emulator.strip()
     data["folder_emulators"] = cur
+    save(data)
+    invalidate_cache()
+
+
+SAVE_STYLES = ("auto", "retroarch", "minui", "generic", "keep")
+
+
+def folder_save_names() -> dict:
+    return {k.lower(): v for k, v in (load().get("folder_save_names") or {}).items() if v and v != "auto"}
+
+
+def set_folder_save_names(folder: str, style: str | None) -> None:
+    """How saves downloaded into a system folder are named: auto (from the files already there), retroarch
+    (Game.srm), minui (Game.gba.sav, MinUI/NextUI), generic (Game.sav) or keep (RomM's name)."""
+    style = style or "auto"
+    if style not in SAVE_STYLES:
+        raise ValueError("save names must be one of " + ", ".join(SAVE_STYLES))
+    data = load()
+    cur = {k: v for k, v in (data.get("folder_save_names") or {}).items() if k.lower() != folder.lower()}
+    if style != "auto":
+        cur[folder] = style
+    data["folder_save_names"] = cur
     save(data)
     invalidate_cache()
 

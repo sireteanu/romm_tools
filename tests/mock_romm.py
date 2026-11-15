@@ -51,6 +51,7 @@ class Store:
         self.assets: Dict[str, List[dict]] = {"saves": [], "states": []}
         self.blobs: Dict[str, bytes] = {}
         self.next_id = 100
+        self.put_names: Dict[int, Optional[str]] = {}
         self.page_delay = 0.0
         self.fail_uploads = False
         self.rom_requests = 0
@@ -352,6 +353,20 @@ async def debug_retroarch_upload(request: Request, rom_id: int, file_name: str):
     return item
 
 
+@app.post("/debug/grout_upload")
+async def debug_grout_upload(request: Request, rom_id: int, file_name: str):
+    """A save uploaded by Grout, RomM's handheld app, under the handheld's name (NextUI: "Game.gba.sav")."""
+    gr = next((d for d in S.devices.values() if d["client"] == "grout"), None)
+    if gr is None:
+        gr = {"id": "dev-grout", "user_id": 1, "name": "Brick (NextUI)", "client": "grout", "hostname": None,
+              "sync_mode": "api", "sync_enabled": True, "last_seen": now().isoformat(),
+              "created_at": now().isoformat(), "updated_at": now().isoformat()}
+        S.devices[gr["id"]] = gr
+    item = S.add_asset("saves", rom_id, file_name, (await request.body()) or b"grout save")
+    item["origin_device_id"] = gr["id"]
+    return item
+
+
 @app.get("/api/platforms")
 def platforms():
     out = []
@@ -468,6 +483,7 @@ async def replace(kind: str, aid: int, request: Request, device_id: Optional[str
                 data = await f.read()
                 S.blobs[f"{kind}:{aid}"] = data
                 i["file_size_bytes"] = len(data)
+                S.put_names[aid] = getattr(f, "filename", None)   # the name the client sent
                 if kind == "saves":
                     i["content_hash"] = hashlib.md5(data).hexdigest()
             i["updated_at"] = now().isoformat()

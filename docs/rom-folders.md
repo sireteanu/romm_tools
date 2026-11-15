@@ -11,8 +11,12 @@ its own folder of links, named the way that frontend expects, pointing at the on
 files. It doesn't need a RomM connection.
 
 **Linux and Docker only** - it relies on Linux paths and symlinks. Its pages are at
-`http://SERVER:8080/roms/` (`#links`, `#romm`), reached from the menu as **Frontend links** and
-**RomM library**; the open page is kept in the address and remembered by the browser.
+`http://SERVER:8080/roms/` (`#links`, `#romm`, `#names`), reached from the menu under **ROMs ▾** as
+**Frontend links**, **RomM library** and **Game names**; the open page is kept in the address and
+remembered by the browser. With save sync running, the top bar also shows its connection and a
+**Sync now** button, as on the save sync pages. Where things are stored (mapping file, source folders,
+links folder) is folded into the *Folders* line under the title; with no frontend yet, the grid says
+how to add the first one.
 Install and the settings shared with save sync are in the [README](../README.md); step by step
 instructions are in the [user guide](user-guide.md).
 

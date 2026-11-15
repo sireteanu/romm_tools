@@ -80,6 +80,17 @@ Added in romm_tools 2.0 (sireteanu, MIT):
 | gamelist.xml through RomM | `src/mapper/romm.py` (`config.yml`), `src/mapper/names.py` (export) |
 | One platform list, shared stylesheet, smaller modules, ROM folders on FastAPI | `src/platforms.py`, `src/web_static/common.css`, `src/sync_rules.py`, `src/sync_files.py`, `src/sync_errors.py`, `src/mapper/names.py` |
 
+Added in romm_tools 2.1 (sireteanu, MIT):
+
+| Area | Files |
+|---|---|
+| Grout and NextUI save names: one game's save under several names (`Game.srm`, `Game.gba.sav`, `Game.sav`), save names per system folder, Grout as a *Synced by* choice | `src/sync_files.py`, `src/sync_engine.py`, `src/settings.py`, `src/device_overview.py`, `tests/test_save_names.py` |
+| Grouped menu, phone menu, getting-started list, Platforms options, Settings tabs | `src/web_static/common.js`, `src/web_static/index.html`, `src/mapper/static/index.html` |
+
+The save name styles follow how NextUI names its saves (its *Save format* setting, see NextUI's
+[Managing saves](https://nextui.loveretro.games/getting-started/managing-saves/)) and how
+[Grout](https://grout.romm.app/usage/save-sync/) uploads them; no code from either is used.
+
 The PPSSPP save name (`PSP-<folder>.zip`) and the parsing of `PARAM.SFO` titles follow RomM's own
 RetroArch PSP handling (`backend/handler/sync/retroarch/psp.py` in `rommapp/romm`), so both name the
 same folders the same way; the code is written anew, no RomM code is copied.

@@ -139,6 +139,94 @@ def local_name_for_remote(item: dict, rom_row: Optional[dict] = None) -> str:
     return rom_stem + suffix
 
 
+# region save name styles
+# The same in-game (battery) save goes by different names on different devices:
+#   retroarch  "Game.srm"      RetroArch, and NextUI's RetroArch option
+#   minui      "Game.gba.sav"  MinUI and NextUI (the default): the ROM file name + ".sav"
+#   generic    "Game.sav"      NextUI's Generic option, some cores
+# Grout (RomM's handheld app) uploads saves under the handheld's name, so one game's save can reach RomM as
+# "Game.gba.sav" from a handheld and "Game.srm" from this app. These helpers treat them as one save.
+_ROM_EXT = re.compile(r"^\.(?=[^.]*[A-Za-z])[A-Za-z0-9]{1,6}$")
+
+
+def save_style(name: str, rom_row: Optional[dict] = None) -> Optional[str]:
+    """'retroarch' | 'minui' | 'generic' for a battery save name, None for anything else (states, .bkr, .dsv...).
+    With the ROM known, only its own extension makes a MinUI name ("Game v1.0a.sav" stays generic)."""
+    low = name.lower()
+    if low.endswith(".srm"):
+        return "retroarch"
+    if low.endswith(".sav"):
+        ext = os.path.splitext(name[:-4])[1]
+        if not _ROM_EXT.match(ext):
+            return "generic"
+        rom_ext = _rom_ext(rom_row)
+        return "minui" if not rom_ext or ext[1:].lower() == rom_ext.lower() else "generic"
+    return None
+
+
+def save_alias(name: str, rom_row: Optional[dict] = None) -> Optional[str]:
+    """The game a battery save belongs to, whatever its style: 'Game.srm', 'Game.sav', 'Game.gba.sav' -> 'game'."""
+    style = save_style(name, rom_row)
+    if style is None:
+        return None
+    stem = name[:-4]
+    if style == "minui":
+        stem = os.path.splitext(stem)[0]
+    return " ".join(stem.casefold().split())
+
+
+def _rom_ext(rom_row: Optional[dict]) -> str:
+    if not rom_row:
+        return ""
+    ext = rom_row.get("fs_extension") or os.path.splitext(rom_row.get("fs_name") or "")[1].lstrip(".")
+    return ext if ext and _ROM_EXT.match("." + ext) else ""
+
+
+def name_in_style(name: str, rom_row: Optional[dict], style: Optional[str]) -> str:
+    """A RomM battery save's name in a folder's style. style None (nothing to go by yet): MinUI names become
+    RetroArch's .srm, the rest stay as they are. 'keep' never renames."""
+    cur = save_style(name, rom_row)
+    if cur is None or style == "keep":
+        return name
+    if style is None:
+        if cur != "minui":
+            return name
+        style = "retroarch"
+    if style == cur:
+        return name
+    stem = name[:-4]
+    if cur == "minui":
+        stem = os.path.splitext(stem)[0]
+    if style == "retroarch":
+        return stem + ".srm"
+    if style == "generic":
+        return stem + ".sav"
+    ext = _rom_ext(rom_row)
+    return f"{stem}.{ext}.sav" if ext else name
+
+
+def detect_save_style(names) -> Optional[str]:
+    """The style most of a folder's saves use (None if it has none)."""
+    counts: Dict[str, int] = {}
+    for n in names:
+        s = save_style(n)
+        if s:
+            counts[s] = counts.get(s, 0) + 1
+    return max(counts, key=lambda k: (counts[k], k == "retroarch")) if counts else None
+
+
+def remote_local_name(item: dict, rom_row: Optional[dict] = None, style: Optional[str] = None) -> str:
+    """local_name_for_remote, with battery saves named in the folder's style first."""
+    raw = _VERSION_TAG.sub("", item.get("file_name") or "")
+    styled = name_in_style(raw, rom_row, style)
+    if styled != raw:
+        item = {**item, "file_name": styled}
+    name = local_name_for_remote(item, rom_row)
+    # renaming to the ROM's name keeps only the last extension; put the style back ("Game.sav" -> "Game.gba.sav")
+    return name_in_style(name, rom_row, style) if style and save_style(styled, rom_row) else name
+# endregion
+
+
 def file_key(file_type: str, rom_id: int, name: str) -> str:
     return f"{file_type}:{rom_id}:{name}"
 

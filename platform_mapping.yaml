@@ -15,12 +15,14 @@
 gb:
   - gb
   - game_boy
+  - sgb
 
 gbc:
   - gbc
 
 gba:
   - gba
+  - mgba
 
 nds:
   - nds
@@ -28,6 +30,29 @@ nds:
 
 gamegear:
   - gamegear
+  - gg
+
+sms:
+  - sms
+  - mastersystem
+
+pokemon-mini:
+  - pokemon-mini
+  - pokemini
+  - pkm
+
+lynx:
+  - lynx
+  - atarilynx
+
+wonderswan:
+  - wonderswan
+  - ws
+
+wonderswan-color:
+  - wonderswan-color
+  - wonderswancolor
+  - wsc
 
 
 virtualboy:
@@ -42,6 +67,7 @@ nes:
 snes:
   - snes
   - sfc
+  - supa
 
 genesis:
   - genesis
@@ -70,14 +96,22 @@ neogeoaes:
 neogeomvs:
   - neogeomvs
 
-turbografx-cd:
-  - turbografx-cd
+# PC Engine HuCards (Batocera / Knulli "pcengine", NextUI "PCE") are tg16; only the CD system is turbografx-cd
+tg16:
+  - tg16
+  - tg-16
   - turbografx
   - turbografx-16
   - pc-engine
   - pcengine
-  - tg16
-  - tg-16
+  - pce
+
+turbografx-cd:
+  - turbografx-cd
+  - pcenginecd
+  - pc-engine-cd
+  - pcecd
+  - tgcd
 
 fds:
   - fds
@@ -211,6 +245,7 @@ pico:
   - pico
   - pico8
   - pico-8
+  - p8
 
 # === HANDHELD/ARCADE SYSTEMS ===
 neo-geo-pocket:

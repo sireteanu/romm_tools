@@ -6,6 +6,7 @@
 <title>romm_tools</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%237c5cff'/%3E%3Cpath d='M9 12a7 7 0 0 1 12-3l2-2v6h-6l2-2a4 4 0 0 0-7 2zM23 20a7 7 0 0 1-12 3l-2 2v-6h6l-2 2a4 4 0 0 0 7-2z' fill='white'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="common.css">
+<script src="common.js"></script>
 <style>
 html,body{margin:0;background:var(--bg);color:var(--text);font:13px/1.4 var(--font)}
 body{background:
@@ -66,6 +67,11 @@ h2 .count{background:var(--surface-2);border:1px solid var(--line);border-radius
 .chip.accent{background:var(--accent-bg);border-color:transparent;color:var(--accent)}
 .notice{margin-top:12px;padding:10px 12px;border-radius:10px;background:var(--warn-bg);color:var(--warn);font-size:13px}
 .notice.bad{background:var(--bad-bg);color:var(--bad)}
+.notice.info{background:var(--info-bg);color:var(--text)} .notice.ok{background:var(--ok-bg);color:var(--ok)}
+.notice code{font-size:12px}
+button.chip,a.chip{cursor:pointer;font:inherit;font-size:11.5px;text-decoration:none;line-height:inherit}
+button.chip:hover,a.chip:hover{filter:brightness(1.18);border-color:var(--faint)}
+.sys:focus-visible{outline:2px solid var(--accent)}
 
 /* approvals */
 .approvals{overflow:hidden}
@@ -89,6 +95,17 @@ h2 .count{background:var(--surface-2);border:1px solid var(--line);border-radius
 .dir.del{background:var(--warn-bg);color:var(--warn)} .dir.up{background:var(--info-bg);color:var(--info)} .dir.down{background:var(--ok-bg);color:var(--ok)} .dir.conf{background:var(--bad-bg);color:var(--bad)}
 .empty{padding:26px;text-align:center;color:var(--muted)}
 
+/* getting started */
+.setup{padding:18px 20px}
+.setup-head{display:flex;gap:12px;align-items:flex-start;justify-content:space-between}
+.setup-head h3{margin:0 0 2px;font-size:16px} .setup-head p{margin:0;color:var(--muted)}
+.steps{list-style:none;margin:14px 0 0;padding:0;display:grid;gap:2px}
+.steps li{display:grid;grid-template-columns:26px minmax(0,1fr) auto;gap:10px;align-items:center;padding:9px 0;border-top:1px solid var(--line)}
+.steps .tick{width:22px;height:22px;border-radius:50%;border:1.5px solid var(--line-strong);display:grid;place-items:center;font-size:12px;font-weight:700}
+.steps li.done .tick{background:var(--ok-bg);border-color:transparent;color:var(--ok)}
+.steps li.done b{color:var(--muted);font-weight:500}
+.steps li.todo .tick{border-color:var(--warn)}
+.steps .hlp{font-size:12.5px;color:var(--muted);margin-top:2px}
 /* systems */
 .systems{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px}
 .sys{padding:14px;cursor:pointer;transition:border-color .15s, transform .15s;position:relative}
@@ -198,7 +215,8 @@ tr.off .pf-folder,tr.off .pf-target{opacity:.55}
 .pf-mode{min-width:150px;padding:5px 8px}
 .emu-row{display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
 .emu-add{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px}
-.pf-emu{width:140px;padding:5px 8px}
+.pf-opts{display:flex;gap:6px;align-items:center;justify-content:flex-end;flex-wrap:wrap}
+.pf-c-opts{text-align:right}
 .sv-tools{display:flex;gap:10px;flex-wrap:wrap;align-items:center;padding:0 20px 14px}
 .sv-tools .inp{width:auto}
 .sv-sel{position:sticky;top:0;z-index:5;display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:10px 20px;background:var(--panel);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
@@ -217,6 +235,9 @@ tr.off .pf-folder,tr.off .pf-target{opacity:.55}
 @media (max-width:860px){ .logbox .e{grid-template-columns:1fr} .hist .h-res{display:none} }
 /* settings view */
 .set-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:16px;align-items:start}
+.set-tabs{display:inline-flex;margin-bottom:16px;flex-wrap:wrap;max-width:100%;border-radius:16px}
+.unit-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.unit-row select{width:auto}
 .set-card{padding:18px 20px}
 .set-card h3{margin:0 0 4px;font-size:16px}
 .set-card > p{margin:0 0 14px;color:var(--muted);font-size:13px}
@@ -242,7 +263,6 @@ select option,select optgroup{background:var(--panel);color:var(--text)}
 .kvlist dt{color:var(--muted)} .kvlist dd{margin:0;font-family:var(--mono);font-size:12.5px;word-break:break-all}
 @media (max-width:860px){ .set-grid{grid-template-columns:1fr} }
 /* nav + platforms view */
-@media (max-width:1480px){ .nav a{padding:0 11px} #mode-pill{display:none} }
 .pf-head{padding:18px 20px;display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap}
 .pf-head h3{margin:0 0 4px;font-size:18px}
 .pf-head p{margin:0;color:var(--muted);max-width:720px}
@@ -265,14 +285,13 @@ select option,select optgroup{background:var(--panel);color:var(--text)}
 .savebar{position:sticky;bottom:14px;margin-top:14px;display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:var(--radius);background:var(--panel);border:1px solid var(--accent);box-shadow:var(--shadow)}
 .legend-row{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);padding:12px 20px;border-top:1px solid var(--line)}
 @media (max-width:860px){
-  header.top .wrap{flex-wrap:wrap;height:auto;padding-top:10px;padding-bottom:10px;row-gap:10px}
-  .nav{order:10;margin-left:0;width:100%;overflow-x:auto;scrollbar-width:none}
-  .nav a{flex:1 0 auto;justify-content:center;padding:0 10px}
   .pf-table thead{display:none}
   .pf-table tr{display:grid;grid-template-columns:1fr auto;gap:6px 10px;padding:12px;border-bottom:1px solid var(--line)}
   .pf-table td{border:0;padding:0}
   .pf-table td.pf-c-pick{grid-column:1/-1}
   .pf-table td.pf-c-games{display:none}
+  .pf-table td.pf-c-opts{grid-column:1/-1}
+  .pf-opts{justify-content:flex-start}
   .pf-pick{min-width:0}
 }
 @media (max-width:860px){
@@ -352,12 +371,25 @@ select option, select optgroup { background: var(--panel); color: var(--text); }
     <div>romm_tools<a class="ver" id="ver" target="_blank" rel="noopener" title="Release notes"></a> <small id="romm-url"></small></div>
     <a class="upd" id="upd" target="_blank" rel="noopener" hidden></a>
   </div>
-  <nav class="nav"><a href="#" data-view="dash" class="on">Dashboard</a><a href="#saves" data-view="sav">Saves</a><a href="#platforms" data-view="plat">Platforms <span class="n" id="nav-unmapped" hidden></span></a><a href="#devices" data-view="dev">Devices</a><a href="#recycle" data-view="bin">Recycle bin <span class="n" id="nav-bin" style="background:var(--surface-hover);color:var(--text)" hidden></span></a><span class="sep" data-feature="rom_folders" hidden></span><a href="roms/#links" data-feature="rom_folders" hidden title="Folders of links for each emulation frontend">Frontend links</a><a href="roms/#romm" data-feature="rom_folders" hidden title="Which of your ROM folders is which RomM platform">RomM library</a><a href="roms/#names" data-feature="rom_folders" hidden title="Give RomM the game names from your frontends' gamelist.xml">Game names</a><span class="sep" data-feature="rom_folders" hidden></span><a href="#logs" data-view="log">Logs</a><a href="#settings" data-view="set">Settings</a></nav>
+  <button class="menu-btn" aria-label="Menu" aria-expanded="false" aria-controls="menu">☰<span class="lbl"> Menu</span></button>
+  <nav class="nav" id="menu" aria-label="Sections"><a href="#" data-view="dash" class="on">Dashboard</a>
+    <div class="grp" data-label="Saves"><button class="grp-btn" aria-expanded="false" aria-haspopup="true"><span class="gl">Saves</span><span class="car">▾</span></button>
+      <div class="grp-menu"><span class="grp-head">Saves</span>
+        <a href="#saves" data-view="sav">Saves<small>Every save and state, in your folders and on RomM</small></a>
+        <a href="#platforms" data-view="plat">Platforms <span class="n alert" id="nav-unmapped" hidden></span><small>Which RomM platform each system folder is</small></a>
+        <a href="#devices" data-view="dev">Devices<small>Which device has which version</small></a>
+        <a href="#recycle" data-view="bin">Recycle bin <span class="n" id="nav-bin" hidden></span><small>Deleted files, kept for a while</small></a></div></div>
+    <div class="grp" data-label="ROMs" data-feature="rom_folders" hidden><button class="grp-btn" aria-expanded="false" aria-haspopup="true"><span class="gl">ROMs</span><span class="car">▾</span></button>
+      <div class="grp-menu"><span class="grp-head">ROMs</span>
+        <a href="roms/#links">Frontend links<small>Folders of links for each emulation frontend</small></a>
+        <a href="roms/#romm">RomM library<small>Which of your ROM folders is which RomM platform</small></a>
+        <a href="roms/#names">Game names<small>Game names from your frontends' gamelist.xml</small></a></div></div>
+    <a href="#logs" data-view="log">Logs</a><a href="#settings" data-view="set">Settings</a></nav>
   <div class="spacer"></div>
   <span class="pill" id="conn"><span class="dot"></span><span>connecting…</span></span>
   <span class="pill" id="mode-pill" title="Sync mode"></span>
   <button class="iconbtn" id="theme-btn" title="Toggle light / dark" aria-label="Toggle light / dark"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor"/></svg></button>
-  <button class="btn primary" id="sync-btn">⟳ Sync now</button>
+  <button class="btn primary" id="sync-btn" title="Sync now">⟳<span class="lbl"> Sync now</span></button>
 </div></header>
 
 <main class="wrap" id="view-dash">
@@ -382,6 +414,10 @@ select option, select optgroup { background: var(--panel); color: var(--text); }
     </div>
   </section>
 
+  <section id="setup-section" hidden>
+    <div class="card setup" id="setup"></div>
+  </section>
+
   <section id="st-section" hidden>
     <h2>Syncthing devices <span class="count" id="st-count"></span></h2>
     <div class="card"><div class="devs" id="st-devs"></div></div>
@@ -399,17 +435,6 @@ select option, select optgroup { background: var(--panel); color: var(--text); }
   <section>
     <h2>Systems <span class="count" id="sys-count">0</span></h2>
     <div class="systems" id="systems"></div>
-  </section>
-
-  <section>
-    <h2>Games <span class="count" id="game-count">0</span></h2>
-    <div class="toolbar">
-      <div class="search"><span style="color:var(--faint)">⌕</span><input id="q" placeholder="Search games…" autocomplete="off"></div>
-      <div class="seg-ctl" id="status-filter">
-        <button data-f="all" class="on">All</button><button data-f="attention">Needs attention</button><button data-f="synced">Synced</button><button data-f="unmatched">Unmatched</button>
-      </div>
-    </div>
-    <div class="games" id="games"></div>
   </section>
 
   <section>
@@ -440,9 +465,9 @@ select option, select optgroup { background: var(--panel); color: var(--text); }
       </div>
       <div id="pf-notices" style="padding:0 20px"></div>
       <div style="overflow-x:auto"><table class="pf-table">
-        <thead><tr><th title="Who syncs this system's saves with RomM">Synced by</th><th>Folder</th><th class="pf-c-games">Games</th><th>Matches RomM platform</th><th>How</th><th>Change</th><th title="The emulator that writes these saves (optional)">Emulator</th></tr></thead>
+        <thead><tr><th>Folder</th><th class="pf-c-games">Games</th><th>Matches RomM platform</th><th>How</th><th>Change</th><th title="Who syncs it, how its saves are named, which emulator writes them">Options</th></tr></thead>
         <datalist id="pf-emus"><option value="mgba"><option value="vba-m"><option value="gambatte"><option value="gearboy"><option value="sameboy"><option value="snes9x"><option value="bsnes"><option value="mesen"><option value="fceumm"><option value="nestopia"><option value="genesis_plus_gx"><option value="picodrive"><option value="mupen64plus_next"><option value="parallel_n64"><option value="pcsx_rearmed"><option value="swanstation"><option value="beetle_psx_hw"><option value="duckstation"><option value="pcsx2"><option value="ppsspp"><option value="dolphin"><option value="melonds"><option value="desmume"><option value="azahar"><option value="flycast"><option value="mednafen_saturn"><option value="yabasanshiro"><option value="mame"><option value="fbneo"><option value="stella"><option value="handy"><option value="prosystem"></datalist>
-        <tbody id="pf-rows"><tr><td colspan="7" class="empty">Loading…</td></tr></tbody>
+        <tbody id="pf-rows"><tr><td colspan="6" class="empty">Loading…</td></tr></tbody>
       </table></div>
       <div class="legend-row">
         <span><span class="how how-mapping">Mapped</span> saved on this page (pre-filled with common MinUI / NextUI / Knulli folder names)</span>
@@ -467,13 +492,14 @@ select option, select optgroup { background: var(--panel); color: var(--text); }
           <h3>Saves</h3>
           <p>Every save and state in your sync folders and on RomM. Tick files or whole games, then choose what to do with them. Deleted files go to the <a href="#recycle">recycle bin</a> first.</p>
         </div>
+        <div class="seg-ctl" id="sv-view" role="tablist" aria-label="View"><button data-v="list" class="on">List</button><button data-v="cards">Cards</button></div>
         <button class="btn" id="sv-reload">Reload</button>
       </div>
-      <div class="sv-tools">
+      <div id="sv-list"><div class="sv-tools">
         <div class="search" style="min-width:200px"><span style="color:var(--faint)">⌕</span><input id="sv-q" placeholder="Search games or files…" autocomplete="off"></div>
         <select class="inp" id="sv-sys"><option value="">All systems</option></select>
         <select class="inp" id="sv-type"><option value="">Saves &amp; states</option><option value="save">Saves only</option><option value="state">States only</option></select>
-        <div class="seg-ctl" id="sv-where" style="flex-wrap:wrap"><button data-w="" class="on">All</button><button data-w="both">In both</button><button data-w="folder">Folder only</button><button data-w="romm">RomM only</button><button data-w="different">Different</button><button data-w="versions">Old versions</button><button data-w="unmatched">Not matched</button></div>
+        <div class="seg-ctl" id="sv-where" style="flex-wrap:wrap"><button data-w="attention" title="Everything that isn't in sync yet">Not in sync</button><button data-w="" class="on">All</button><button data-w="both">In both</button><button data-w="folder">Folder only</button><button data-w="romm">RomM only</button><button data-w="different">Different</button><button data-w="versions">Old versions</button><button data-w="unmatched">Not matched</button></div>
       </div>
       <div class="sv-sel" id="sv-sel">
         <span id="sv-count" class="muted">Loading…</span><span class="spacer" style="flex:1"></span>
@@ -487,6 +513,18 @@ select option, select optgroup { background: var(--panel); color: var(--text); }
       <div id="sv-job" hidden style="padding:12px 20px;border-bottom:1px solid var(--line)"><div class="progress-meta"><span id="sv-job-text"></span><span id="sv-job-n"></span></div><div class="bar" style="margin:8px 0 0"><i id="sv-job-bar"></i></div></div>
       <div style="overflow:auto"><table class="hist sv-table"><thead><tr><th style="width:28px"><input type="checkbox" id="sv-all" title="Select everything shown"></th><th>File</th><th class="h-sm">In your folder</th><th class="h-sm">On RomM</th><th>Status</th></tr></thead><tbody id="sv-rows"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody></table></div>
       <div id="sv-more" style="padding:12px 20px;text-align:center" hidden><button class="btn small" id="sv-more-btn">Show more games</button></div>
+      </div>
+      <div id="sv-cards" hidden style="padding:0 20px 20px">
+        <div class="toolbar">
+          <div class="search"><span style="color:var(--faint)">⌕</span><input id="q" placeholder="Search games…" autocomplete="off"></div>
+          <select class="inp" id="cards-sys" style="width:auto"><option value="">All systems</option></select>
+          <div class="seg-ctl" id="status-filter">
+            <button data-f="all" class="on">All</button><button data-f="attention">Needs attention</button><button data-f="synced">Synced</button><button data-f="unmatched">Unmatched</button>
+          </div>
+          <span class="count" id="game-count" style="color:var(--muted)"></span>
+        </div>
+        <div class="games" id="games"></div>
+      </div>
     </div>
   </section>
 </main>
@@ -497,7 +535,7 @@ select option, select optgroup { background: var(--panel); color: var(--text); }
       <div class="pf-head">
         <div style="flex:1;min-width:260px">
           <h3>Devices</h3>
-          <p>Which device last synced each save, and whether it has the newest version. RomM's list comes from RomM 5.4+ with romm_tools registered as a device (Settings → RomM connection); the Syncthing list from the Syncthing integration.</p>
+          <p>Which device last synced each save, and whether it has the newest version: this app, handhelds with Grout, RetroArch Cloud Sync and other RomM apps. A game's save counts as one even when devices name it differently (<code>Game.srm</code>, <code>Game.gba.sav</code>). Needs RomM 5.4+ with romm_tools registered as a device (Settings → RomM); Syncthing devices come from the Syncthing integration.</p>
         </div>
         <button class="btn" id="dev-reload">Reload</button>
       </div>
@@ -546,23 +584,22 @@ select option, select optgroup { background: var(--panel); color: var(--text); }
 
 <main class="wrap" id="view-set" hidden>
   <section>
+    <div class="set-tabs seg-ctl" id="set-tabs" role="tablist" aria-label="Settings sections">
+      <button data-st="sync" class="on">Sync</button><button data-st="romm">RomM</button><button data-st="emulators">Emulators</button><button data-st="syncthing">Syncthing</button><button data-st="notifications">Notifications</button><button data-st="access">Access</button>
+    </div>
     <div class="set-grid">
-      <div>
-        <div class="card set-card" id="set-sync"></div>
-        <div class="card set-card" id="set-timing" style="margin-top:16px"></div>
-        <div class="card set-card" id="set-backups" style="margin-top:16px"></div>
-      </div>
-      <div>
-        <div class="card set-card" id="set-notify"></div>
-        <div class="card set-card" id="set-romm" style="margin-top:16px"></div>
-        <div class="card set-card" id="set-emu" style="margin-top:16px"></div>
-        <div class="card set-card" id="set-syncthing" style="margin-top:16px"></div>
-        <div class="card set-card" id="set-access" style="margin-top:16px"></div>
-        <div class="card set-card" id="set-conn" style="margin-top:16px"></div>
-      </div>
+      <div class="card set-card" id="set-sync" data-tab="sync"></div>
+      <div class="card set-card" id="set-timing" data-tab="sync"></div>
+      <div class="card set-card" id="set-backups" data-tab="sync"></div>
+      <div class="card set-card" id="set-romm" data-tab="romm"></div>
+      <div class="card set-card" id="set-conn" data-tab="romm"></div>
+      <div class="card set-card" id="set-emu" data-tab="emulators"></div>
+      <div class="card set-card" id="set-syncthing" data-tab="syncthing"></div>
+      <div class="card set-card" id="set-notify" data-tab="notifications"></div>
+      <div class="card set-card" id="set-access" data-tab="access"></div>
     </div>
     <div class="savebar" id="set-savebar" hidden>
-      <b id="set-dirty-count"></b><span style="color:var(--muted)">Changes apply right away, no restart needed.</span><span class="spacer" style="flex:1"></span>
+      <b id="set-dirty-count"></b><span style="color:var(--muted)">They apply as soon as you save, no restart needed.</span><span class="spacer" style="flex:1"></span>
       <button class="btn" id="set-discard">Discard</button><button class="btn primary" id="set-save">Save settings</button>
     </div>
   </section>
@@ -610,6 +647,17 @@ function img(ref){
   return null;
 }
 function hashOf(o){ return JSON.stringify(o); }
+// notes you've dismissed (this browser only)
+function seen(k){ try { return (JSON.parse(localStorage.getItem("rt-seen")||"[]")).includes(k); } catch(e){ return false; } }
+function markSeen(k){ try { const a = JSON.parse(localStorage.getItem("rt-seen")||"[]"); if(!a.includes(k)) a.push(k); localStorage.setItem("rt-seen", JSON.stringify(a.slice(-50))); } catch(e){} }
+// open the Saves page with some filters set
+function goSaves({where, sys, view}={}){
+  if (where !== undefined) sv2.where = where;
+  if (sys !== undefined) { sv2.sys = sys; state.system = sys || null; }
+  if (view) svSetView(view);
+  sv2.userPicked = true; sv2.limit = 150;
+  if (location.hash !== "#saves") location.hash = "#saves"; else if (sv2.loaded) svSyncControls(), renderSaves();
+}
 function toast(msg){ const t=$("#toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove("show"),3200); }
 async function api(path, opts={}){
   const r = await fetch(path, {headers:{"content-type":"application/json"}, ...opts});
@@ -777,26 +825,34 @@ function renderStatus(d){
   const r = d.last_sync_result || {};
   const chips = [];
   if (r.pushed!=null) {
-    chips.push(`<span class="chip info">⬆ <b>${r.pushed}</b> uploaded</span>`);
-    chips.push(`<span class="chip ok">⬇ <b>${r.pulled}</b> downloaded</span>`);
-    if (r.deleted) chips.push(`<a class="chip warn" href="#recycle" style="text-decoration:none">🗑 <b>${r.deleted}</b> to recycle bin</a>`);
-    chips.push(`<span class="chip">✓ <b>${r.in_sync}</b> in sync</span>`);
-
-    if (r.unmatched) chips.push(`<span class="chip">? <b>${r.unmatched}</b> unmatched</span>`);
+    chips.push(`<a class="chip info" href="#logs" title="See them under Logs → Recent actions">⬆ <b>${r.pushed}</b> uploaded</a>`);
+    chips.push(`<a class="chip ok" href="#logs" title="See them under Logs → Recent actions">⬇ <b>${r.pulled}</b> downloaded</a>`);
+    if (r.deleted) chips.push(`<a class="chip warn" href="#recycle">🗑 <b>${r.deleted}</b> to recycle bin</a>`);
+    chips.push(`<button class="chip" data-go="both" title="Show them on the Saves page">✓ <b>${r.in_sync}</b> in sync</button>`);
+    if (r.unmatched) chips.push(`<button class="chip" data-go="unmatched" title="Link them to RomM games on the Saves page">? <b>${r.unmatched}</b> unmatched</button>`);
   }
   const conflicts = d.pending.filter(a=>a.kind==="conflict").length, waiting = d.pending.length - conflicts;
-  if (waiting) chips.push(`<span class="chip warn">⏸ <b>${waiting}</b> need${waiting===1?"s":""} a decision</span>`);
-  if ((d.errors||[]).length) chips.push(`<span class="chip bad">✘ <b>${d.errors.length}</b> file${d.errors.length===1?"":"s"} failed</span>`);
-  if (conflicts) chips.push(`<span class="chip bad">⚠ <b>${conflicts}</b> conflict${conflicts>1?"s":""}</span>`);
+  if (waiting) chips.push(`<button class="chip warn" data-ap="${["delete","push","pull"].find(k=>d.pending.some(a=>KIND[a.kind].tab===k))||""}">⏸ <b>${waiting}</b> need${waiting===1?"s":""} a decision</button>`);
+  if ((d.errors||[]).length) chips.push(`<button class="chip bad" data-ap="errors">✘ <b>${d.errors.length}</b> file${d.errors.length===1?"":"s"} failed</button>`);
+  if (conflicts) chips.push(`<button class="chip bad" data-ap="conflict">⚠ <b>${conflicts}</b> conflict${conflicts>1?"s":""}</button>`);
+  const ch = hashOf(chips); if (state.lastHash.chips !== ch) { state.lastHash.chips = ch;
   $("#result-chips").innerHTML = chips.join("");
+  $("#result-chips").querySelectorAll("[data-go]").forEach(b => b.onclick = () => goSaves({where:b.dataset.go}));
+  $("#result-chips").querySelectorAll("[data-ap]").forEach(b => b.onclick = () => {
+    if (b.dataset.ap) state.tab = b.dataset.ap; renderApprovals(true);
+    $("#approvals-section").scrollIntoView({behavior:"smooth", block:"start"}); }); }
 
   const notes = [];
   if (d.last_error) notes.push(`<div class="notice bad">${esc(d.last_error)}</div>`);
   if (d.config.pull_mode !== "off" && !d.config.pull_writable) notes.push(`<div class="notice">RomM → folder sync is enabled but your sync folders are mounted read-only. Remove <code>:ro</code> from the container's sync folder mappings to allow downloads.</div>`);
   if (d.config.dry_run) notes.push(`<div class="notice">DRY_RUN is on: nothing is uploaded or downloaded.</div>`);
   const ov = Object.entries(d.cloud_overlap || {});
+  const gd = d.grout_devices || [];
+  if (gd.length && !seen("grout:"+gd.join(","))) notes.push(`<div class="notice info">Grout syncs ${gd.length===1?`<b>${esc(gd[0])}</b>`:`${gd.length} handhelds (${gd.map(esc).join(", ")})`} with RomM directly, and romm_tools picks those saves up from RomM, whatever the handheld calls them (<code>Game.gba.sav</code> or <code>Game.srm</code>). If a handheld's saves folder is <i>also</i> shared with this app through Syncthing, set those systems to <i>Grout</i> on the <a href="#platforms">Platforms page</a> so each save takes one path. <button class="linkbtn" data-seen="grout:${esc(gd.join(","))}">Got it</button></div>`);
   if (ov.length) notes.push(`<div class="notice">RetroArch Cloud Sync also syncs saves for ${ov.map(([f,o])=>`<b>${esc(f)}</b> (${plural(o.count,"game")})`).join(", ")} straight with RomM. Two sync paths for the same saves can make them bounce back and forth: on the <a href="#platforms">Platforms page</a>, set those systems to <i>RetroArch Cloud Sync</i>, or turn Cloud Sync off on that device.</div>`);
-  $("#notices").innerHTML = notes.join("");
+  const nh = hashOf(notes); if (state.lastHash.notes !== nh) { state.lastHash.notes = nh;
+    $("#notices").innerHTML = notes.join("");
+    $("#notices").querySelectorAll("[data-seen]").forEach(b => b.onclick = () => { markSeen(b.dataset.seen); renderStatus(state.data); }); }
 
   $("#last-sync").textContent = ago(d.last_sync_finished);
   $("#last-scan").textContent = d.last_folder_scan ? ago(d.last_folder_scan) : "—";
@@ -817,7 +873,7 @@ function renderStatus(d){
     document.querySelectorAll("#footer-ver").forEach(e => e.textContent = ` · romm_tools v${v.app}` + (v.romm ? ` · RomM ${v.romm}` : ""));
   }
   const nb = $("#nav-bin"); nb.hidden = !d.recycle_count; nb.textContent = d.recycle_count || "";
-  const btn = $("#sync-btn"); btn.disabled = busy; btn.textContent = busy ? "⟳ Syncing…" : "⟳ Sync now";
+  const btn = $("#sync-btn"); btn.disabled = busy; btn.innerHTML = busy ? `⟳<span class="lbl"> Syncing…</span>` : `⟳<span class="lbl"> Sync now</span>`;
   const conn = $("#conn");
   conn.innerHTML = `<span class="dot ${d.phase==="error"?"bad":busy?"busy":d.pending.length?"warn":"ok"}"></span><span>${d.phase==="error"?"error":busy?"working":"connected"}</span>`;
 }
@@ -900,32 +956,35 @@ function renderApprovals(force=false){
 }
 
 function renderSystems(d){
-  const h = hashOf([d.systems, state.system]); if (state.lastHash.sys === h) return; state.lastHash.sys = h;
+  const h = hashOf([d.systems]); if (state.lastHash.sys === h) return; state.lastHash.sys = h;
   $("#sys-count").textContent = d.systems.length;
   const slugFor = p => (d.games.find(g=>g.platform===p && g.platform_slug)||{}).platform_slug;
   $("#systems").innerHTML = d.systems.map(s => {
     const slug = slugFor(s.platform); const tot = s.games || 1;
     const seg = (n,c)=> n?`<i class="${c}" style="width:${100*n/tot}%"></i>`:"";
     const initials = esc(s.display_name.replace(/[^A-Za-z0-9 ]/g,"").split(/\s+/).map(w=>w[0]).join("").slice(0,3).toUpperCase());
-    return `<div class="card sys ${state.system===s.platform?"active":""}" data-p="${esc(s.platform)}">
+    return `<div class="card sys" data-p="${esc(s.platform)}" role="link" tabindex="0" title="Show ${esc(s.display_name)} on the Saves page">
       <div class="top"><div class="icon">${slug?`<img src="img/platform/${encodeURIComponent(slug)}" alt="" onerror="this.replaceWith(document.createTextNode('${initials}'))">`:initials}</div>
         <div style="min-width:0"><div class="nm">${esc(s.display_name)}</div><div class="sub">${plural(s.games,"game")} · ${plural(s.saves,"save")} · ${plural(s.states,"state")}</div></div></div>
       <div class="seg">${seg(s.synced,"s-ok")}${seg(s.pending,"s-pend")}${seg(s.conflict,"s-conf")}${seg(s.error,"s-err")}${seg(s.unmatched,"s-un")}</div>
       <div class="legend"><span>✓ ${s.synced}</span>${s.pending?`<span style="color:var(--warn)">⏸ ${s.pending}</span>`:""}${s.conflict?`<span style="color:var(--bad)">⚠ ${s.conflict}</span>`:""}${s.unmatched?`<span>? ${s.unmatched}</span>`:""}${s.error?`<span style="color:var(--bad)">✘ ${s.error}</span>`:""}</div>
     </div>`;
   }).join("") || `<div class="empty card" style="grid-column:1/-1">No systems yet — waiting for the first scan.</div>`;
-  $("#systems").querySelectorAll(".sys").forEach(c=>c.onclick=()=>{ state.system = state.system===c.dataset.p ? null : c.dataset.p; state.lastHash={}; render(); });
+  $("#systems").querySelectorAll(".sys").forEach(c=>c.onclick=()=>{ const s = d.systems.find(x=>x.platform===c.dataset.p); goSaves({sys: s ? s.display_name : "", where:""}); });
 }
 
 function renderGames(d){
   let games = d.games;
-  if (state.system) games = games.filter(g=>g.platform===state.system);
+  if (state.system) games = games.filter(g=>(g.platform_display_name||g.platform)===state.system || g.platform===state.system);
+  const sysNames = [...new Set(d.games.map(g=>g.platform_display_name||g.platform))].sort((a,b)=>a.localeCompare(b));
+  const sh = hashOf([sysNames, state.system]);
+  if (state.lastHash.csys !== sh) { state.lastHash.csys = sh; $("#cards-sys").innerHTML = `<option value="">All systems</option>` + sysNames.map(n=>`<option ${n===state.system?"selected":""}>${esc(n)}</option>`).join(""); }
   if (state.filter==="attention") games = games.filter(g=>["pending","conflict","error"].includes(g.ui_status));
   else if (state.filter==="synced") games = games.filter(g=>g.ui_status==="synced");
   else if (state.filter==="unmatched") games = games.filter(g=>g.ui_status==="unmatched");
   if (state.q) { const q = state.q.toLowerCase(); games = games.filter(g => (g.name+" "+(g.romm_name||"")).toLowerCase().includes(q)); }
   const h = hashOf(games.map(g=>[g.platform,g.name,g.ui_status,g.screenshot,g.cover,g.local_saves,g.local_states,g.romm_saves,g.romm_states]));
-  $("#game-count").textContent = games.length + (games.length!==d.games.length?` / ${d.games.length}`:"");
+  $("#game-count").textContent = games.length!==d.games.length ? `${games.length} of ${plural(d.games.length,"game")}` : plural(d.games.length,"game");
   if (state.lastHash.games === h) return; state.lastHash.games = h;
   $("#games").innerHTML = games.map((g,i) => {
     const shot = img(g.screenshot), cover = img(g.cover);
@@ -948,7 +1007,31 @@ function renderActivity(d){
   if (atBottom) log.scrollTop = log.scrollHeight;
 }
 
-function render(){ const d = state.data; if(!d) return; renderStatus(d); renderApprovals(); renderSystems(d); renderGames(d); renderActivity(d); }
+function render(){ const d = state.data; if(!d) return; renderStatus(d); renderSetup(); renderApprovals(); renderSystems(d); renderGames(d); renderActivity(d); }
+
+// ---------- getting started ----------
+function renderSetup(){
+  const d = state.data; if (!d) return;
+  const pfd = pf.data, dev = state.dev, st = state.st;
+  const synced = !!d.last_sync_finished && d.phase !== "error";
+  const unmapped = pfd ? pfd.folders.filter(f=>f.how==="none").length : null;
+  const steps = [
+    {done: synced, need:true, title:"Connect to RomM", how: d.phase==="error" ? (d.last_error||"RomM can't be reached.") : "Waiting for the first sync to finish.", href:"#settings/romm", go:"Check the connection"},
+    {done: !pfd || pfd.folders.length>0, need:true, title:"Find your system folders", how:"No system folders in your sync folders yet (one folder per system, e.g. snes/Game.srm).", href:"#platforms", go:"See what the app finds"},
+    {done: unmapped===0 || unmapped===null, need:true, title:"Match every system folder to a RomM platform", how: `${plural(unmapped||0,"folder")} ${unmapped===1?"has":"have"} no RomM platform yet, so ${unmapped===1?"its":"their"} saves can't sync.`, href:"#platforms", go:"Pick platforms"},
+    {done: !dev || !!dev.device_id, need:false, title:"Register with RomM as a device", how:"RomM 5.4+: RomM then knows which version this app has and refuses to overwrite a newer one.", href:"#settings/romm", go:"Set it up"},
+    {done: !st || !!st.configured, need:false, title:"Connect Syncthing", how:"Optional: the app waits until Syncthing has finished receiving a save, and shows your devices.", href:"#settings/syncthing", go:"Set it up"},
+  ];
+  const open = steps.filter(x=>!x.done), mustDo = open.some(x=>x.need);
+  const key = "setup:" + open.map(x=>x.title).join("|");
+  const show = open.length && (mustDo || !seen(key));
+  $("#setup-section").hidden = !show;
+  const h = hashOf([show, steps.map(x=>[x.done, x.how])]); if (state.lastHash.setup === h) return; state.lastHash.setup = h;
+  if (!show) return;
+  $("#setup").innerHTML = `<div class="setup-head"><div><h3>${mustDo?"Finish setting up":"A couple of optional extras"}</h3><p>${mustDo?"Saves sync once these are done.":"Everything works without these."}</p></div>${mustDo?"":`<button class="btn small" id="setup-hide">Hide</button>`}</div>
+    <ol class="steps">${steps.map(x=>`<li class="${x.done?"done":x.need?"todo":"opt"}"><span class="tick">${x.done?"✓":""}</span><div><b>${esc(x.title)}</b>${x.need?"":` <span class="src">optional</span>`}${x.done?"":`<div class="hlp">${esc(x.how)}</div>`}</div>${x.done?"":`<a class="btn small ${x.need?"primary":""}" href="${x.href}">${esc(x.go)}</a>`}</li>`).join("")}</ol>`;
+  if ($("#setup-hide")) $("#setup-hide").onclick = () => { markSeen(key); renderSetup(); };
+}
 
 // ---------- platforms view ----------
 const HOW = {mapping:"Mapped", exact:"Exact", "romm-folder":"RomM folder", "romm-alias":"RomM alias", none:"Not mapped"};
@@ -961,7 +1044,7 @@ function slugFromInput(v){
 }
 async function loadPlatforms(force){
   try { pf.data = await api("api/platforms"); renderPlatforms(); }
-  catch(e){ $("#pf-rows").innerHTML = `<tr><td colspan="7" class="empty">Couldn't load platforms: ${esc(e.message)}</td></tr>`; }
+  catch(e){ $("#pf-rows").innerHTML = `<tr><td colspan="6" class="empty">Couldn't load platforms: ${esc(e.message)}</td></tr>`; }
 }
 function renderPlatforms(){
   const d = pf.data; if(!d) return;
@@ -996,38 +1079,36 @@ function renderPlatforms(){
   const unmapped = d.folders.filter(f=>f.how==="none").length;
   const nb = $("#nav-unmapped"); nb.hidden = !unmapped; nb.textContent = unmapped;
 
-  $("#pf-rows").innerHTML = d.folders.map(f => {
+  // folders that still need a platform first
+  const folders = [...d.folders].sort((a,b) => (a.how==="none") === (b.how==="none") ? a.folder.localeCompare(b.folder, undefined, {sensitivity:"base"}) : a.how==="none" ? -1 : 1);
+  const ov = (state.data && state.data.cloud_overlap) || {};
+  $("#pf-rows").innerHTML = folders.map(f => {
     const edit = pf.edits[f.folder];
     const dirty = edit !== undefined;
     const val = dirty ? (edit ? optLabel(d.platforms.find(p=>p.slug===edit) || {name:edit, slug:edit}) : "") :
                 (f.how==="mapping" ? optLabel(d.platforms.find(p=>p.slug===f.slug) || {name:f.name||f.slug, slug:f.slug}) : "");
     const target = f.slug ? `<div class="nm">${esc(f.name || f.slug)}</div><div class="sl">${esc(f.slug)}${f.in_library?` · ${plural(f.rom_count,"ROM")} in your RomM`:` · <span style="color:var(--warn)">not in your RomM library</span>`}</div>`
                           : `<span style="color:var(--muted)">—</span>`;
+    const opts = [];
+    if (f.mode !== "sync") opts.push(`<span class="chip ${f.mode==="off"?"warn":"info"}">${esc(PF_MODES[f.mode])}</span>`);
+    if (f.save_names && f.save_names !== "auto") opts.push(`<span class="chip accent" title="How saves downloaded here are named">${esc(SAVE_STYLE[f.save_names][0])} names</span>`);
+    if (f.emulator) opts.push(`<span class="chip" title="The emulator that writes these saves">${esc(f.emulator)}</span>`);
+    if (ov[f.folder] && f.mode==="sync") opts.push(`<span class="chip warn" title="${esc(ov[f.folder].games.join(", "))}">⚠ Cloud Sync too</span>`);
     return `<tr class="${dirty?"dirty":""}${f.enabled?"":" off"}" data-folder="${esc(f.folder)}">
-      <td><select class="inp pf-mode" data-mode aria-label="Who syncs ${esc(f.folder)}">${[["sync","romm_tools"],["cloud","RetroArch Cloud Sync"],["off","Not synced"]].map(([v,l])=>`<option value="${v}" ${f.mode===v?"selected":""}>${l}</option>`).join("")}</select></td>
-      <td><div class="pf-folder">${esc(f.folder)}</div>${f.mode==="off"?`<div style="color:var(--warn);font-size:12px">sync off</div>`:f.mode==="cloud"?`<div style="color:var(--muted);font-size:12px">RetroArch syncs it with RomM</div>`:""}${(state.data && state.data.cloud_overlap && state.data.cloud_overlap[f.folder] && f.mode==="sync")?`<div style="color:var(--warn);font-size:12px" title="${esc(state.data.cloud_overlap[f.folder].games.join(", "))}">⚠ RetroArch Cloud Sync also syncs ${plural(state.data.cloud_overlap[f.folder].count,"game")} here</div>`:""}</td>
-      <td class="pf-c-games">${f.games}${f.unmatched?` <span style="color:var(--warn)">(${f.unmatched} unmatched)</span>`:""}</td>
+      <td><div class="pf-folder">${esc(f.folder)}</div></td>
+      <td class="pf-c-games">${f.games}${f.unmatched?` <span style="color:var(--warn);white-space:nowrap">(${f.unmatched} unmatched)</span>`:""}</td>
       <td class="pf-target">${target}</td>
       <td><span class="how how-${f.how}">${HOW[f.how]}</span></td>
       <td class="pf-c-pick"><div class="pf-pick">
         <input list="pf-options" placeholder="${f.how==="none"?"Pick a RomM platform…":"Override automatic match…"}" value="${esc(val)}" aria-label="RomM platform for ${esc(f.folder)}">
         ${(f.how==="mapping" || (dirty && edit)) ? `<button class="iconbtn" data-clear title="Remove mapping (use automatic matching)" aria-label="Remove mapping">✕</button>` : ""}
       </div></td>
-      <td><input class="inp pf-emu" data-emu list="pf-emus" value="${esc(f.emulator||"")}" placeholder="any" aria-label="Emulator for ${esc(f.folder)}" title="Sent to RomM with uploads. A RomM copy written by a different emulator waits for your approval."></td></tr>`;
-  }).join("") || `<tr><td colspan="7" class="empty">No system folders found in your sync folders yet.</td></tr>`;
+      <td class="pf-c-opts"><div class="pf-opts">${opts.join("")}<button class="btn small" data-opts title="Who syncs ${esc(f.folder)}, save names, emulator" aria-label="Options for ${esc(f.folder)}">⚙ ${opts.length?"":"Options"}</button></div></td></tr>`;
+  }).join("") || `<tr><td colspan="6" class="empty">No system folders found in your sync folders yet.</td></tr>`;
 
   $("#pf-rows").querySelectorAll("tr[data-folder]").forEach(tr => {
     const folder = tr.dataset.folder, f = d.folders.find(x=>x.folder===folder), input = tr.querySelector("input[list]");
-    tr.querySelector("[data-mode]").onchange = async ev => {
-      const mode = ev.target.value;
-      try { pf.data = await api("api/platforms/mode", {method:"PUT", body:JSON.stringify({folder, mode})}); renderPlatforms();
-            toast({sync:`romm_tools syncs ${folder}`, off:`${folder} won't be synced`, cloud:`${folder} is left to RetroArch Cloud Sync`}[mode]); }
-      catch(e){ toast("⚠ "+e.message); renderPlatforms(); }
-    };
-    tr.querySelector("[data-emu]").onchange = async ev => {
-      try { pf.data = await api("api/platforms/emulator", {method:"PUT", body:JSON.stringify({folder, emulator:ev.target.value})}); renderPlatforms(); toast(ev.target.value ? `${folder}: ${ev.target.value}` : `${folder}: any emulator`); }
-      catch(e){ toast("⚠ "+e.message); }
-    };
+    tr.querySelector("[data-opts]").onclick = () => pfOptions(f);
     input.onchange = () => {
       const v = input.value.trim();
       if (!v) { setEdit(folder, f.how==="mapping" ? null : undefined); return; }
@@ -1040,6 +1121,35 @@ function renderPlatforms(){
     if (clr) clr.onclick = () => setEdit(folder, f.how==="mapping" ? null : undefined);
   });
   renderSavebar();
+}
+const PF_MODES = {sync:"romm_tools", cloud:"RetroArch Cloud Sync", grout:"Grout", off:"Not synced"};
+const PF_MODE_HELP = {sync:"This app syncs the folder with RomM.", cloud:"RetroArch Cloud Sync on that device syncs these saves with RomM itself; this app leaves the folder alone.",
+  grout:"Grout (RomM's app for NextUI, Knulli, Batocera, muOS…) syncs the handheld's saves with RomM itself; this app leaves this folder alone. Only needed when the handheld's saves folder is also shared with this app.",
+  off:"Nothing in this folder is synced."};
+const SAVE_STYLE = {auto:["Automatic","like the saves already in the folder (Game.srm if it's empty)"], retroarch:["RetroArch","Game.srm"],
+  minui:["MinUI / NextUI","Game.gba.sav: the ROM's file name + .sav"], generic:["Generic",".sav: Game.sav"], keep:["RomM's","the name the file has on RomM"]};
+function pfOptions(f){
+  const det = f.save_names_detected ? SAVE_STYLE[f.save_names_detected][0] : null;
+  openModal(`<div class="mh"><div><h3><code>${esc(f.folder)}</code> options</h3><p>${esc(f.name || "No RomM platform yet")}</p></div></div>
+    <div class="mb">
+      <div class="field"><div class="lbl">Synced by</div><select class="inp" id="po-mode">${Object.entries(PF_MODES).map(([v,l])=>`<option value="${v}" ${f.mode===v?"selected":""}>${esc(l)}</option>`).join("")}</select><div class="hlp" id="po-mode-h"></div></div>
+      <div class="field"><div class="lbl">Save names</div><select class="inp" id="po-names">${Object.entries(SAVE_STYLE).map(([v,[l,h]])=>`<option value="${v}" ${(f.save_names||"auto")===v?"selected":""}>${esc(l)}: ${esc(v==="auto"&&det?`now ${det}`:h)}</option>`).join("")}</select>
+        <div class="hlp">How in-game saves from RomM are named in this folder. A handheld with Grout uploads <code>Game.gba.sav</code> (NextUI) where RetroArch needs <code>Game.srm</code>; either way it's the same save.</div></div>
+      <div class="field"><div class="lbl">Emulator <span class="src">optional</span></div><input class="inp" id="po-emu" list="pf-emus" value="${esc(f.emulator||"")}" placeholder="any">
+        <div class="hlp">Sent to RomM with uploads. A RomM copy written by a different emulator waits for your approval.</div></div>
+    </div>
+    <div class="mf"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" id="po-save">Save</button></div>`);
+  const mh = () => $("#po-mode-h").textContent = PF_MODE_HELP[$("#po-mode").value];
+  $("#po-mode").onchange = mh; mh();
+  $("#po-save").onclick = async () => {
+    const folder = f.folder, mode = $("#po-mode").value, style = $("#po-names").value, emulator = $("#po-emu").value.trim();
+    try {
+      if (mode !== f.mode) pf.data = await api("api/platforms/mode", {method:"PUT", body:JSON.stringify({folder, mode})});
+      if (style !== (f.save_names||"auto")) pf.data = await api("api/platforms/save-names", {method:"PUT", body:JSON.stringify({folder, style})});
+      if (emulator !== (f.emulator||"")) pf.data = await api("api/platforms/emulator", {method:"PUT", body:JSON.stringify({folder, emulator})});
+      closeModal(); renderPlatforms(); toast(`${folder}: saved`);
+    } catch(e){ toast("⚠ "+e.message); }
+  };
 }
 function setEdit(folder, slug){ if (slug === undefined) delete pf.edits[folder]; else pf.edits[folder] = slug; renderPlatforms(); }
 function renderSavebar(){
@@ -1081,16 +1191,31 @@ function fieldHTML(f){
   let ctl = "";
   if (f.type === "bool") ctl = `<div class="seg-ctl" style="display:inline-flex">${[["false","Off"],["true","On"]].map(([c,l])=>`<button data-set="${f.key}" data-v="${c}" class="${String(v)===c?"on":""}">${l}</button>`).join("")}</div>`;
   else if (f.type === "choice") ctl = `<div class="seg-ctl" style="display:inline-flex">${f.choices.map(c=>`<button data-set="${f.key}" data-v="${c}" class="${String(v)===String(c)?"on":""}">${esc((f.labels&&f.labels[c])||MODE[c]||c)}</button>`).join("")}</div>`;
-  else if (f.type === "int") ctl = `<div class="row"><input class="inp num" type="number" min="${f.min}" max="${f.max}" data-set="${f.key}" value="${esc(v)}"><span style="color:var(--muted);font-size:12.5px">${f.unit}${f.unit==="seconds"&&v?` (${secsHuman(v)})`:""}</span></div>`;
+  else if (f.type === "int" && f.unit === "seconds") {
+    // shown as a number and a unit (10 minutes), stored in seconds
+    const secs = +v || 0, units = [[86400,"days"],[3600,"hours"],[60,"minutes"],[1,"seconds"]].filter(([u])=>u<=Math.max(f.max,1));
+    const cur = (sv.units||{})[f.key] || (units.find(([u])=>secs && secs % u === 0) || [1])[0];
+    ctl = `<div class="unit-row"><input class="inp num" type="number" min="0" step="any" data-secs="${f.key}" data-unit="${cur}" value="${esc(secs/cur)}" aria-label="${esc(f.label)}">
+      <select class="inp" data-unitsel="${f.key}" aria-label="unit">${units.map(([u,l])=>`<option value="${u}" ${u===cur?"selected":""}>${l}</option>`).join("")}</select>${secs===0?`<span style="color:var(--muted);font-size:12.5px">off</span>`:""}</div>`;
+  }
+  else if (f.type === "int") ctl = `<div class="row"><input class="inp num" type="number" min="${f.min}" max="${f.max}" data-set="${f.key}" value="${esc(v)}"><span style="color:var(--muted);font-size:12.5px">${f.unit}</span></div>`;
   else if (f.type === "secret") ctl = `<input class="inp" type="password" autocomplete="new-password" data-set="${f.key}" placeholder="${f.is_set?"•••••••• saved — type to change":"not set"}" value="${esc(sv.edits[f.key]||"")}">`;
   else ctl = `<input class="inp" type="text" autocomplete="off" data-set="${f.key}" value="${esc(v||"")}">`;
   return `<div class="field"><div class="lbl">${esc(f.label)} ${src}</div>${ctl}${f.help?`<div class="hlp">${esc(f.help)}</div>`:""}</div>`;
 }
+function setSettingsTab(t){
+  const tabs = ["sync","romm","emulators","syncthing","notifications","access"];
+  sv.tab = tabs.includes(t) ? t : "sync";
+  $("#set-tabs").querySelectorAll("button").forEach(b=>b.classList.toggle("on", b.dataset.st===sv.tab));
+  document.querySelectorAll("#view-set .set-card").forEach(c => c.hidden = c.dataset.tab !== sv.tab);
+}
+$("#set-tabs").querySelectorAll("button").forEach(b => b.onclick = () => { history.replaceState(null, "", "#settings/"+b.dataset.st); setSettingsTab(b.dataset.st); });
 function renderSettings(){
   const d = sv.data; if(!d) return;
-  const by = g => d.fields.filter(f=>f.group===g).map(fieldHTML).join("");
+  const mode = d.connection.sync_mode;
+  const by = g => d.fields.filter(f=>f.group===g && (!f.mode || f.mode===mode)).map(fieldHTML).join("");
   $("#set-sync").innerHTML = `<h3>Sync behaviour</h3><p>Everything syncs automatically; you're only asked when it's unclear (conflicts, deletions, first-time mismatches).</p>${by("sync")}`;
-  $("#set-timing").innerHTML = `<h3>Timing</h3><p>Current sync mode: <b>${esc(d.connection.sync_mode)}</b>.</p>${by("timing")}`;
+  $("#set-timing").innerHTML = `<h3>Timing</h3><p>${mode==="watch" ? "Watch mode: the app reacts when a file in your sync folders changes, and checks RomM on a timer." : "Periodic mode: everything is synced on a timer."} <span style="color:var(--faint)">(SYNC_MODE in the container settings)</span></p>${by("timing")}`;
   $("#set-backups").innerHTML = `<h3>Files &amp; backups</h3><p>How files are written to your sync folders. Before any file is overwritten, the replaced version is copied to the backups folder.</p>${by("backups")}`;
   $("#set-access").innerHTML = `<h3>Dashboard access</h3><p>Optional login for this dashboard.</p>${by("access")}`;
   $("#set-romm").innerHTML = `<h3>RomM connection</h3><div id="romm-conn" class="hlp">Loading…</div>${by("romm")}`;
@@ -1112,6 +1237,17 @@ function renderSettings(){
     else el.oninput = () => { sv.edits[key] = el.type==="number" ? el.value : el.value; sv.reset.delete(key); renderSetSavebar(); };
   });
   document.querySelectorAll("#view-set [data-reset]").forEach(b => b.onclick = () => { sv.reset.add(b.dataset.reset); delete sv.edits[b.dataset.reset]; renderSettings(); });
+  document.querySelectorAll("#view-set [data-secs]").forEach(el => el.oninput = () => {
+    const key = el.dataset.secs, n = parseFloat(el.value);
+    if (isNaN(n)) return;
+    sv.edits[key] = String(Math.round(n * +el.dataset.unit)); sv.reset.delete(key); renderSetSavebar();
+  });
+  document.querySelectorAll("#view-set [data-unitsel]").forEach(el => el.onchange = () => {
+    const key = el.dataset.unitsel, inp = document.querySelector(`[data-secs="${key}"]`), n = parseFloat(inp.value) || 0;
+    sv.units = {...(sv.units||{}), [key]: +el.value};
+    sv.edits[key] = String(Math.round(n * +el.value)); sv.reset.delete(key); renderSettings();
+  });
+  setSettingsTab(sv.tab);
   renderSetSavebar();
 }
 async function loadEmu(){
@@ -1158,9 +1294,10 @@ function renderDevices(){
   const d = devData; if (!d) return;
   const st = d.syncthing || {};
   $("#dev-st").innerHTML = (st.configured && !st.error ? `<div class="devs" style="padding:0 0 14px">${(st.devices||[]).map(v => `<div class="dev"><div class="n"><span class="dot ${v.connected?"on":""}"></span>${esc(v.name)} <span class="chip">Syncthing</span></div><div class="m">${v.connected?"Connected":"Not connected"}${v.completion!=null?` · ${v.completion>=100?"up to date":v.completion+"% synced"}`:""}</div></div>`).join("")}</div>` : "")
-    + (d.registered ? "" : `<div class="notice" style="margin:0 0 14px">romm_tools isn't registered as a RomM device, so RomM can't say which device holds which save. It registers itself at startup on RomM 5.4+ when its login may manage devices (devices.write) — or <a href="#settings">pair it with RomM</a>.</div>`);
+    + (d.registered ? "" : `<div class="notice" style="margin:0 0 14px">romm_tools isn't registered as a RomM device, so RomM can't say which device holds which save. It registers itself at startup on RomM 5.4+ when its login may manage devices (devices.write) — or <a href="#settings/romm">pair it with RomM</a>.</div>`);
   const devs = d.romm_devices || [];
-  $("#dev-head").innerHTML = `<tr><th>Save</th><th class="h-sm">Newest on RomM</th>${devs.map(v=>`<th title="${esc(v.client||"")}${v.last_seen?" · last seen "+esc(ago(v.last_seen)):""}">${esc(v.name)}${v.this_app?" <span class=\"chip accent\">this app</span>":""}</th>`).join("")}</tr>`;
+  const KINDS = {grout:["Grout","info"], retroarch:["RetroArch","ok"], romm_tools:["romm_tools",""], other:["",""]};
+  $("#dev-head").innerHTML = `<tr><th>Save</th><th class="h-sm">Newest on RomM</th>${devs.map(v=>{ const [kl,kc] = KINDS[v.kind]||["",""]; return `<th title="${esc(v.client||"")}${v.last_seen?" · last seen "+esc(ago(v.last_seen)):""}">${esc(v.name)}<div style="margin-top:3px;display:flex;gap:4px;text-transform:none;letter-spacing:0">${v.this_app?`<span class="chip accent">this app</span>`:kl?`<span class="chip ${kc}">${kl}</span>`:v.client?`<span class="chip">${esc(v.client)}</span>`:""}</div></th>`; }).join("")}</tr>`;
   const q = $("#dev-q").value.trim().toLowerCase(), behind = $("#dev-behind").checked;
   const rows = (d.rows||[]).filter(r => (!q || r.game.toLowerCase().includes(q) || r.file.toLowerCase().includes(q))
     && (!behind || devs.some(v => r.syncs[v.id] && !r.syncs[v.id].current)));
@@ -1211,12 +1348,21 @@ async function loadSyncthingFolders(){
   } catch(e) { box.className = "hlp"; box.innerHTML = `<span style="color:var(--bad)">${esc(e.message)}</span>`; }
 }
 function renderSetSavebar(){
-  const n = Object.keys(sv.edits).length + sv.reset.size;
+  const n = Object.keys(sv.edits).length + sv.reset.size + (sv.notifDirty ? 1 : 0);
   $("#set-savebar").hidden = !n; $("#set-dirty-count").textContent = `${n} unsaved change${n===1?"":"s"}`;
 }
-$("#set-discard").onclick = () => { sv.edits = {}; sv.reset = new Set(); renderSettings(); };
+$("#set-discard").onclick = () => { sv.edits = {}; sv.reset = new Set(); sv.units = {}; if (sv.notifDirty) { sv.notif = JSON.parse(JSON.stringify(sv.data.notifications)); sv.notifDirty = false; } renderSettings(); };
 $("#set-save").onclick = async () => {
-  try { sv.data = await api("api/settings", {method:"PUT", body:JSON.stringify({values: sv.edits, reset:[...sv.reset]})}); sv.edits={}; sv.reset=new Set(); renderSettings(); toast("Settings saved"); poll(); }
+  try {
+    if (sv.notifDirty) {
+      const n = sv.notif;
+      const r = await api("api/notifications",{method:"PUT",body:JSON.stringify({channels:n.channels,events:n.events,dashboard_url:n.dashboard_url})});
+      sv.data = {...sv.data, ...r}; sv.notif = JSON.parse(JSON.stringify(r.notifications)); sv.notifDirty = false;
+    }
+    if (Object.keys(sv.edits).length || sv.reset.size)
+      sv.data = await api("api/settings", {method:"PUT", body:JSON.stringify({values: sv.edits, reset:[...sv.reset]})});
+    sv.edits={}; sv.reset=new Set(); sv.units = {}; renderSettings(); toast("Settings saved"); poll();
+  }
   catch(e){ toast("⚠ "+e.message); }
 };
 function renderNotify(){
@@ -1239,18 +1385,13 @@ function renderNotify(){
       ${chk("problems","Sync problems","RomM unreachable, token rejected, sync failed (and when it recovers)")}
       ${chk("activity","Sync activity","Every sync that uploaded or downloaded files")}</div>
     <div class="field"><div class="lbl">Dashboard address <span class="src">optional</span></div><input class="inp" id="dash-url" placeholder="http://YOUR-SERVER:8080" value="${esc(n.dashboard_url||"")}"><div class="hlp">Messages link here so you can tap through to resolve things.</div></div>
-    <div class="row" style="justify-content:flex-end;margin-top:8px"><button class="btn" id="test-notify" ${n.channels.length?"":"disabled"}>Send test</button><button class="btn primary" id="save-notify" ${sv.notifDirty?"":"disabled"}>Save notifications</button></div>`;
-  const dirty = () => { sv.notifDirty = true; $("#save-notify").disabled = false; $("#test-notify").title = "Save first, then test"; };
-  $("#add-chan").onclick = () => { const t=$("#add-type").value; const c={type:t}; types[t].fields.forEach(f=>c[f.name]=""); n.channels.push(c); sv.notifDirty=true; renderNotify(); };
-  $("#set-notify").querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{ n.channels.splice(+b.dataset.rm,1); sv.notifDirty=true; renderNotify(); });
+    <div class="row" style="justify-content:flex-end;margin-top:8px"><button class="btn" id="test-notify" ${n.channels.length?"":"disabled"}>Send test</button></div>`;
+  const dirty = () => { sv.notifDirty = true; $("#test-notify").title = "Save first, then test"; renderSetSavebar(); };
+  $("#add-chan").onclick = () => { const t=$("#add-type").value; const c={type:t}; types[t].fields.forEach(f=>c[f.name]=""); n.channels.push(c); sv.notifDirty=true; renderNotify(); renderSetSavebar(); };
+  $("#set-notify").querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{ n.channels.splice(+b.dataset.rm,1); sv.notifDirty=true; renderNotify(); renderSetSavebar(); });
   $("#set-notify").querySelectorAll("[data-ch]").forEach(el=>el.oninput=()=>{ n.channels[+el.dataset.ch][el.dataset.f]=el.value; dirty(); });
   $("#set-notify").querySelectorAll("[data-ev]").forEach(el=>el.onchange=()=>{ n.events[el.dataset.ev]=el.checked; dirty(); });
   $("#dash-url").oninput = e => { n.dashboard_url = e.target.value; dirty(); };
-  $("#save-notify").onclick = async () => {
-    try { sv.data = await api("api/notifications",{method:"PUT",body:JSON.stringify({channels:n.channels,events:n.events,dashboard_url:n.dashboard_url})});
-          sv.notif = JSON.parse(JSON.stringify(sv.data.notifications)); sv.notifDirty=false; renderNotify(); toast("Notifications saved"); }
-    catch(e){ toast("⚠ "+e.message); }
-  };
   $("#test-notify").onclick = async () => {
     if (sv.notifDirty) { toast("Save your changes first"); return; }
     const b=$("#test-notify"); b.disabled=true; b.textContent="Sending…";
@@ -1265,7 +1406,7 @@ async function loadBin(){
   try {
     const d = await api("api/recycle");
     const ret = d.retention_days;
-    $("#bin-sub").innerHTML = `When a synced file is deleted on one side, the copy on the other side is moved here instead of being destroyed. ${ret ? `Items are removed for good after <b>${ret} days</b>.` : "Items are kept until you delete them."} <a href="#settings">Change</a>`
+    $("#bin-sub").innerHTML = `When a synced file is deleted on one side, the copy on the other side is moved here instead of being destroyed. ${ret ? `Items are removed for good after <b>${ret} days</b>.` : "Items are kept until you delete them."} <a href="#settings/sync">Change</a>`
       + (d.delete_mode==="off" ? ` <span style="color:var(--warn)">Deletions are currently not carried across (Settings → Sync behaviour).</span>` : "");
     $("#bin-empty").disabled = !d.entries.length;
     $("#bin-rows").innerHTML = d.entries.map(e => {
@@ -1301,8 +1442,11 @@ $("#bin-empty").onclick = async () => {
 };
 
 // ---------- saves page ----------
-const sv2 = { rows:[], loaded:false, sel:new Set(), where:"", q:"", sys:"", type:"", limit:150, jobTimer:null, retention:null };
+const sv2 = { rows:[], loaded:false, sel:new Set(), where:"", q:"", sys:"", type:"", limit:150, jobTimer:null, retention:null, userPicked:false, view:"list" };
 const SV_STATUS = {both:["ok","In sync"], different:["warn","Different"], folder:["info","Folder only"], romm:["accent","RomM only"]};
+const SV_NEXT = {up:["⬆ uploads next sync","Only your folder's copy changed since the last sync, so it goes to RomM."],
+                 down:["⬇ downloads next sync","Only RomM's copy changed since the last sync, so it comes to your folder."],
+                 ask:["asks you","Both changed, or this was never synced: you choose under Needs your attention."]};
 async function loadSaves(){
   sv2.loaded = true;
   $("#sv-count").textContent = "Reading your folders and RomM…";
@@ -1313,14 +1457,31 @@ async function loadSaves(){
     const ids = new Set(d.rows.map(r=>r.id)); sv2.sel = new Set([...sv2.sel].filter(i=>ids.has(i)));
     const systems = [...new Set(d.rows.map(r=>r.system))].sort((a,b)=>a.localeCompare(b));
     $("#sv-sys").innerHTML = `<option value="">All systems</option>` + systems.map(s=>`<option ${s===sv2.sys?"selected":""}>${esc(s)}</option>`).join("");
+    // first visit: open on what isn't in sync, if anything (your own choice of filter is kept after that)
+    if (!sv2.userPicked) { sv2.where = d.rows.some(svNeedsWork) ? "attention" : ""; }
+    svSyncControls();
     if (d.job && d.job.running) watchSavesJob();
     renderSaves();
   } catch(e) { sv2.loaded = false; $("#sv-count").textContent = ""; $("#sv-rows").innerHTML = `<tr><td colspan="5"><div class="notice bad">${esc(e.message)}</div></td></tr>`; }
 }
+// not in sync yet: differs, only on one side (and not just a RomM copy for a game you don't have), or unmatched
+function svNeedsWork(r){ return r.status==="different" || (r.status==="folder") || (r.status==="romm" && r.local_game) || (!r.matched && r.local_game); }
+function svSetView(v){
+  sv2.view = v; try { localStorage.setItem("rt-saves-view", v); } catch(e){}
+  $("#sv-view").querySelectorAll("button").forEach(b=>b.classList.toggle("on", b.dataset.v===v));
+  $("#sv-list").hidden = v!=="list"; $("#sv-cards").hidden = v!=="cards";
+  state.lastHash.games = null; if (state.data) renderGames(state.data);
+}
+function svSyncControls(){
+  $("#sv-where").querySelectorAll("button").forEach(x=>x.classList.toggle("on", x.dataset.w===sv2.where));
+  const sel = $("#sv-sys"); if ([...sel.options].some(o=>o.value===sv2.sys)) sel.value = sv2.sys;
+  state.lastHash.games = null; if (state.data) renderGames(state.data);
+}
 function svFiltered(){
   const q = sv2.q.trim().toLowerCase();
   return sv2.rows.filter(r => (!sv2.sys || r.system===sv2.sys) && (!sv2.type || r.type===sv2.type)
-    && (!sv2.where || (sv2.where==="versions" ? (r.romm && r.romm.versions>1) : sv2.where==="unmatched" ? (!r.matched && r.local_game) : r.status===sv2.where))
+    && (!sv2.where || (sv2.where==="versions" ? (r.romm && r.romm.versions>1) : sv2.where==="unmatched" ? (!r.matched && r.local_game)
+        : sv2.where==="attention" ? svNeedsWork(r) : r.status===sv2.where))
     && (!q || r.game.toLowerCase().includes(q) || r.name.toLowerCase().includes(q)));
 }
 function svGroups(rows){
@@ -1336,7 +1497,7 @@ function renderSaves(){
     return `<tr class="g"><td><input type="checkbox" data-sg="${esc(g.key)}" ${all?"checked":""} ${!all&&some?"data-ind=1":""}></td><td colspan="4"><span class="gn">${esc(g.game)}</span> <span style="color:var(--muted)">· ${esc(g.system)} · ${plural(g.rows.length,"file")}</span>${svMatchInfo(g)}</td></tr>`
       + g.rows.map(r => { const [c,l] = SV_STATUS[r.status]; return `<tr class="f"><td><input type="checkbox" data-sr="${r.id}" ${sv2.sel.has(r.id)?"checked":""}></td>
         <td class="f"><button class="linkbtn sv-name" data-hist="${r.id}" title="Version history">${esc(r.name)}</button><div style="color:var(--muted);font-family:var(--font)">${r.type}${r.matched?"":" · not matched to a RomM game"}</div></td>
-        <td class="side h-sm">${side(r.local,false)}</td><td class="side h-sm">${side(r.romm,true)}</td><td><span class="chip ${c}">${l}</span></td></tr>`; }).join("");
+        <td class="side h-sm">${side(r.local,false)}</td><td class="side h-sm">${side(r.romm,true)}</td><td><span class="chip ${c}">${l}</span>${r.next&&SV_NEXT[r.next]?`<div style="color:var(--muted);font-size:11.5px;margin-top:3px;white-space:nowrap" title="${esc(SV_NEXT[r.next][1])}">${SV_NEXT[r.next][0]}</div>`:""}</td></tr>`; }).join("");
   }).join("") || `<tr><td colspan="5" class="empty">${sv2.rows.length ? "Nothing matches these filters." : "No saves or states found."}</td></tr>`;
   document.querySelectorAll("[data-ind]").forEach(c => c.indeterminate = true);
   document.querySelectorAll("[data-link]").forEach(b => b.onclick = () => svLink(byKey[b.dataset.link]));
@@ -1459,9 +1620,11 @@ $("#sv-zip").onclick = async () => {
 };
 $("#sv-reload").onclick = () => loadSaves();
 let svQT=null; $("#sv-q").oninput = e => { clearTimeout(svQT); svQT = setTimeout(()=>{ sv2.q=e.target.value; sv2.limit=150; renderSaves(); }, 200); };
-$("#sv-sys").onchange = e => { sv2.sys=e.target.value; sv2.limit=150; renderSaves(); };
+$("#sv-sys").onchange = e => { sv2.sys=e.target.value; state.system = sv2.sys || null; sv2.limit=150; renderSaves(); };
 $("#sv-type").onchange = e => { sv2.type=e.target.value; sv2.limit=150; renderSaves(); };
-$("#sv-where").querySelectorAll("button").forEach(b => b.onclick = () => { $("#sv-where").querySelectorAll("button").forEach(x=>x.classList.toggle("on",x===b)); sv2.where=b.dataset.w; sv2.limit=150; renderSaves(); });
+$("#sv-where").querySelectorAll("button").forEach(b => b.onclick = () => { $("#sv-where").querySelectorAll("button").forEach(x=>x.classList.toggle("on",x===b)); sv2.where=b.dataset.w; sv2.userPicked=true; sv2.limit=150; renderSaves(); });
+$("#sv-view").querySelectorAll("button").forEach(b => b.onclick = () => svSetView(b.dataset.v));
+$("#cards-sys").onchange = e => { state.system = e.target.value || null; state.lastHash.games = null; renderGames(state.data); };
 $("#sv-more-btn").onclick = () => { sv2.limit += 150; renderSaves(); };
 $("#sv-all").onchange = e => { svFiltered().forEach(r => e.target.checked ? sv2.sel.add(r.id) : sv2.sel.delete(r.id)); renderSaves(); };
 $("#sv-clear").onclick = () => { sv2.sel.clear(); renderSaves(); };
@@ -1485,7 +1648,7 @@ const lg = { level:"INFO", q:"", timer:null, lastHash:"" };
 const KIND_LABEL = {push_new:"Upload (new)", push_update:"Upload", pull_new:"Download (new)", pull_update:"Download", conflict:"Conflict", delete_romm:"Delete on RomM", delete_local:"Delete in folder", manage_delete:"Delete (Saves page)", manage_prune:"Old versions removed", manage_restore:"Older version put back"};
 async function loadLogs(){
   clearTimeout(lg.timer);
-  if (location.hash !== "#logs") return;
+  if (!location.hash.startsWith("#logs")) return;
   try {
     const d = await api(`api/logs?level=${lg.level}&q=${encodeURIComponent(lg.q)}&limit=1500`);
     const h = hashOf([d.entries.length, d.entries.slice(-1), d.history.length, d.history[0]]);
@@ -1516,13 +1679,15 @@ $("#log-follow").onchange = () => loadLogs();
 
 // ---------- routing ----------
 function route(){
-  const view = {"#platforms":"plat", "#settings":"set", "#logs":"log", "#recycle":"bin", "#saves":"sav", "#devices":"dev"}[location.hash] || "dash";
+  const [hash, sub] = location.hash.split("/");
+  const view = {"#platforms":"plat", "#settings":"set", "#logs":"log", "#recycle":"bin", "#saves":"sav", "#devices":"dev"}[hash] || "dash";
+  if (view==="set" && sub) sv.tab = sub;
   $("#view-dev").hidden = view!=="dev"; if (view==="dev") loadDevices();
   $("#view-sav").hidden = view!=="sav"; if (view==="sav" && !sv2.loaded) loadSaves();
   $("#view-dash").hidden = view!=="dash"; $("#view-plat").hidden = view!=="plat"; $("#view-set").hidden = view!=="set"; $("#view-log").hidden = view!=="log"; $("#view-bin").hidden = view!=="bin";
   document.querySelectorAll(".nav a").forEach(a => a.classList.toggle("on", a.dataset.view === view));
   if (view==="plat") loadPlatforms();
-  if (view==="set") loadSettings();
+  if (view==="set") { setSettingsTab(sv.tab); loadSettings(); }
   if (view==="log") { lg.lastHash = ""; loadLogs(); }
   if (view==="bin") loadBin();
 }
@@ -1546,9 +1711,10 @@ async function pollSyncthing(){
   clearTimeout(stTimer);
   try {
     const d = await api("api/syncthing");
+    state.st = d; renderSetup();
     $("#st-section").hidden = !d.configured;
     if (d.configured) {
-      if (d.error) $("#st-devs").innerHTML = `<div class="notice bad" style="margin:0;grid-column:1/-1">Couldn't reach Syncthing: ${esc(d.error)} <a href="#settings">Settings</a></div>`;
+      if (d.error) $("#st-devs").innerHTML = `<div class="notice bad" style="margin:0;grid-column:1/-1">Couldn't reach Syncthing: ${esc(d.error)} <a href="#settings/syncthing">Settings</a></div>`;
       else {
         const busy = (d.folders||[]).filter(f=>f.state && f.state!=="idle");
         $("#st-count").textContent = (d.devices||[]).length;
@@ -1556,7 +1722,7 @@ async function pollSyncthing(){
           + ((d.devices||[]).map(v => `<div class="dev"><div class="n"><span class="dot ${v.connected?"on":""}"></span>${esc(v.name)}</div>
             <div class="m">${v.connected?"Connected":"Not connected"}${v.completion!=null?` · ${v.completion>=100?"up to date":v.completion+"% synced"}`:""}</div></div>`).join("")
             || `<div class="hlp" style="grid-column:1/-1">No other devices share ${d.picked?"these folders":"your folders"}.</div>`)
-          + (d.picked ? "" : `<div class="hlp" style="grid-column:1/-1;color:var(--warn)">Pick the folders that hold your saves in <a href="#settings">Settings → Syncthing</a> so the app knows what to wait for.</div>`);
+          + (d.picked ? "" : `<div class="hlp" style="grid-column:1/-1;color:var(--warn)">Pick the folders that hold your saves in <a href="#settings/syncthing">Settings → Syncthing</a> so the app knows what to wait for.</div>`);
       }
     }
   } catch(e) {}
@@ -1580,7 +1746,9 @@ api("api/features").then(f => {
 route();
 poll();
 // unmapped-folder badge on the nav even while on the dashboard
-api("api/platforms").then(d => { if(!pf.data){ pf.data = d; const n = d.folders.filter(f=>f.how==="none").length; const nb=$("#nav-unmapped"); nb.hidden=!n; nb.textContent=n; } }).catch(()=>{});
+api("api/platforms").then(d => { if(!pf.data){ pf.data = d; const n = d.folders.filter(f=>f.how==="none").length; const nb=$("#nav-unmapped"); nb.hidden=!n; nb.textContent=n; renderSetup(); } }).catch(()=>{});
+api("api/romm/device").then(d => { state.dev = d; renderSetup(); }).catch(()=>{});
+try { svSetView(localStorage.getItem("rt-saves-view") === "cards" ? "cards" : "list"); } catch(e){ svSetView("list"); }
 </script>
 </body>
 </html>

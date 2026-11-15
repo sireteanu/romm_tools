@@ -84,6 +84,11 @@ class FolderMode(BaseModel):
     mode: str
 
 
+class FolderSaveNames(BaseModel):
+    folder: str
+    style: str
+
+
 class FolderEmulator(BaseModel):
     folder: str
     emulator: str = ""
@@ -163,6 +168,12 @@ def create_app(cfg) -> FastAPI:
     def common_css():
         """Styles both pages share (RomM's design tokens and the top bar)."""
         return FileResponse(STATIC_DIR / "common.css", media_type="text/css", headers={"Cache-Control": "no-cache"})
+
+    @app.get("/common.js", include_in_schema=False)
+    def common_js():
+        """Script both pages share (the grouped menu and the phone menu button)."""
+        return FileResponse(STATIC_DIR / "common.js", media_type="text/javascript",
+                            headers={"Cache-Control": "no-cache"})
 
     @app.get("/static/{name}")
     def static(name: str):
@@ -291,6 +302,17 @@ def create_app(cfg) -> FastAPI:
     def _sync_dirs():
         return [d for d in (cfg.SAVE_SYNC_DIR, cfg.STATE_SYNC_DIR, cfg.ALL_SYNC_DIR) if d is not None]
 
+    def _detected_save_styles():
+        """How the saves already in each folder are named (from the last folder scan; no disk access)."""
+        from .sync_files import detect_save_style
+        orch = STATE.orchestrator
+        if orch is None or getattr(orch, "lcl", None) is None:
+            return {}
+        names = {}
+        for g in list(orch.lcl.games.values()):
+            names.setdefault(g.platform.lower(), []).extend(sf.path.name for sf in g.local_save_files)
+        return {k: detect_save_style(v) for k, v in names.items()}
+
     def _platforms_payload():
         catalog = pf.get_catalog()
         lib = _library_platforms()
@@ -311,8 +333,10 @@ def create_app(cfg) -> FastAPI:
         with STATE.lock:
             games = list(STATE.games.values())
         folders = []
-        from .settings import cloud_sync_folders, disabled_folders, folder_emulators
+        from .settings import cloud_sync_folders, disabled_folders, folder_emulators, grout_folders, folder_save_names
         disabled, cloud, emulators = disabled_folders(), cloud_sync_folders(), folder_emulators()
+        grout, save_names = grout_folders(), folder_save_names()
+        detected = _detected_save_styles()
         for folder in pf.local_platform_folders(_sync_dirs()):
             slug, how = pf.resolve(folder, mapping, lib_slugs, lib_fs, catalog.get("aliases", {}))
             fg = [g for g in games if g["platform"].lower() == folder.lower()]
@@ -324,8 +348,11 @@ def create_app(cfg) -> FastAPI:
                 "known_slug": bool(slug) and (slug in names),
                 "games": len(fg), "unmatched": sum(1 for g in fg if not g.get("matched")),
                 "enabled": folder.lower() not in disabled,
-                "mode": "cloud" if folder.lower() in cloud else ("off" if folder.lower() in disabled else "sync"),
+                "mode": "cloud" if folder.lower() in cloud else "grout" if folder.lower() in grout else
+                        ("off" if folder.lower() in disabled else "sync"),
                 "emulator": emulators.get(folder.lower()) or "",
+                "save_names": save_names.get(folder.lower(), "auto"),
+                "save_names_detected": detected.get(folder.lower()),
             })
         platforms = [{"slug": slug, "name": name, "in_library": slug in lib_slugs,
                       "rom_count": lib_by_slug.get(slug, {}).get("rom_count", 0)}
@@ -391,7 +418,8 @@ def create_app(cfg) -> FastAPI:
 
     @app.put("/api/platforms/mode")
     def platforms_mode(body: FolderMode):
-        """sync = this app syncs the folder; off = left alone; cloud = RetroArch Cloud Sync syncs it with RomM."""
+        """sync = this app syncs the folder; off = left alone; cloud / grout = RetroArch Cloud Sync / Grout syncs it
+        with RomM directly."""
         from . import settings as st
         if body.folder.lower() not in {f.lower() for f in pf.local_platform_folders(_sync_dirs())}:
             raise HTTPException(400, f"Unknown folder: {body.folder}")
@@ -400,11 +428,24 @@ def create_app(cfg) -> FastAPI:
         except ValueError as e:
             raise HTTPException(400, str(e))
         what = {"sync": "synced by romm_tools", "off": "not synced",
-                "cloud": "left to RetroArch Cloud Sync"}[body.mode]
+                "cloud": "left to RetroArch Cloud Sync", "grout": "left to Grout"}[body.mode]
         STATE.add_activity("INFO", f"'{body.folder}' is now {what}")
         STATE.cloud_overlap.pop(body.folder, None) if body.mode != "sync" else None
         if body.mode == "sync" and STATE.request_sync_callback:
             STATE.request_sync_callback()
+        return _platforms_payload()
+
+    @app.put("/api/platforms/save-names")
+    def platforms_save_names(body: FolderSaveNames):
+        """How saves downloaded into this folder are named (auto, retroarch, minui, generic, keep)."""
+        from . import settings as st
+        if body.folder.lower() not in {f.lower() for f in pf.local_platform_folders(_sync_dirs())}:
+            raise HTTPException(400, f"Unknown folder: {body.folder}")
+        try:
+            st.set_folder_save_names(body.folder, body.style)
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        STATE.add_activity("INFO", f"Saves downloaded into '{body.folder}' are now named: {body.style}")
         return _platforms_payload()
 
     @app.put("/api/platforms/emulator")

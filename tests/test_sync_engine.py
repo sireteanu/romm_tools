@@ -6,7 +6,8 @@ from pathlib import Path
 
 os.environ.setdefault("DATA_DIR", tempfile.mkdtemp(prefix="romm_sync_test_"))
 
-from src.sync_engine import LocalFile, decide, local_name_for_remote  # noqa: E402
+from src.sync_engine import LocalFile, decide  # noqa: E402
+from src.sync_files import local_name_for_remote  # noqa: E402
 
 T0 = datetime(2026, 10, 1, 12, 0, tzinfo=timezone.utc)
 
@@ -552,3 +553,17 @@ def test_folder_modes(tmp_path, monkeypatch):
 def test_new_content_on_romm_within_the_same_second_is_a_change():
     d = decide(local("aaa"), remote(h="new", t=T0), base("aaa", T0, 5, rh="old"))
     assert d.kind == "pull_update"
+
+
+def test_pc_engine_folders_point_at_tg16(tmp_path, monkeypatch):
+    """Older defaults mapped Batocera's 'pcengine' (HuCards) to the CD platform; a saved mapping is fixed once."""
+    monkeypatch.setenv("DATA_DIR", str(tmp_path))
+    from src import platforms as pf
+    pf.save_mapping({"turbografx-cd": ["pcengine", "tg16", "turbografx-cd"], "snes": ["sfc"]})
+    assert pf.upgrade_mapping() is True
+    m = pf.load_mapping(pf.ui_mapping_file())
+    assert m["tg16"] == ["pcengine", "tg16"] and m["turbografx-cd"] == ["turbografx-cd"] and m["snes"] == ["sfc"]
+    assert pf.upgrade_mapping() is False
+    defaults = pf.load_mapping(pf.default_mapping_file())
+    assert "pcengine" in defaults["tg16"] and "pcenginecd" in defaults["turbografx-cd"]
+    assert "mgba" in defaults["gba"] and "supa" in defaults["snes"]

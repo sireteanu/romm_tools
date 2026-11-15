@@ -261,10 +261,33 @@ def effective_mapping_path(mounted: Optional[Path] = None) -> Optional[Path]:
     return None
 
 
+# Before romm_tools 2.1 the shipped defaults sent the PC Engine HuCard folders to RomM's CD platform.
+_PCE_HUCARD = {"tg16", "tg-16", "turbografx", "turbografx-16", "pc-engine", "pcengine"}
+
+
+def upgrade_mapping() -> bool:
+    """Fix entries older defaults got wrong in the saved mapping: PC Engine HuCard folders ('pcengine', 'tg16'...)
+    point at tg16, not turbografx-cd. True if the file changed."""
+    try:
+        mapping = load_mapping(ui_mapping_file())
+    except Exception:  # noqa: BLE001
+        return False
+    moved = [n for n in mapping.get("turbografx-cd", []) if n.lower() in _PCE_HUCARD]
+    if not moved:
+        return False
+    mapping["turbografx-cd"] = [n for n in mapping["turbografx-cd"] if n not in moved]
+    mapping["tg16"] = sorted(set(mapping.get("tg16", [])) | set(moved), key=str.lower)
+    save_mapping(mapping)
+    logger.info(f"Platform mapping: {', '.join(moved)} now point at TurboGrafx-16/PC Engine (tg16) instead of the "
+                "CD platform (older versions mapped them wrongly).")
+    return True
+
+
 def ensure_mapping_seeded(mounted: Optional[Path] = None) -> None:
     """Create the saved mapping on first start, pre-filled from (in order) a mapping saved by 2.1.x,
     a mounted platform_mapping.yaml, or the defaults shipped with the app."""
     if ui_mapping_file().is_file():
+        upgrade_mapping()
         return
     for source, label in ((legacy_ui_mapping_file(), "previously saved mapping"),
                           (mounted, "mounted platform_mapping.yaml"),

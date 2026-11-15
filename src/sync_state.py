@@ -143,9 +143,10 @@ class AppState:
 
         # Hook set by the app: called by the GUI "Sync now" button.
         self.request_sync_callback = None
-        self.orchestrator = None
-        self.problem_since: Optional[str] = None
-        self.cloud_overlap: dict = {}   # {system folder: {count, games}} also synced by RetroArch Cloud Sync  # first failed sync in the current run of failures (health check)  # the running SyncOrchestrator (its libraries feed the Saves page)
+        self.orchestrator = None              # the running SyncOrchestrator (its libraries feed the Saves page)
+        self.problem_since: Optional[str] = None   # first failed sync in the current run of failures (health check)
+        self.cloud_overlap: dict = {}   # {system folder: {count, games}} also synced by RetroArch Cloud Sync
+        self.grout_devices: list = []   # names of the Grout handhelds RomM knows (dashboard note)
 
     # region persistence
     def _load(self):
@@ -386,6 +387,7 @@ class AppState:
                 "last_romm_check": self.last_romm_check,
                 "last_folder_scan": self.last_folder_scan,
                 "cloud_overlap": self.cloud_overlap,
+                "grout_devices": self.grout_devices,
                 "sync_mode": self.sync_mode,
                 "last_error": self.last_error,
                 "systems": sorted(systems.values(), key=lambda s: s["display_name"].lower()),
