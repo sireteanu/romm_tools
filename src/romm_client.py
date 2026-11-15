@@ -369,6 +369,13 @@ class RommClient:
             return None
         return r.json().get("device_id")
 
+    def list_saves_with_syncs(self) -> List[Dict]:
+        """All saves with `device_syncs` (which devices hold which version) - RomM 5.4+ with a registered device."""
+        if not self.device_id:
+            return self.list_all("saves")
+        r = self._request("GET", "/api/saves", params={"device_id": self.device_id}, timeout=60, ok=(401, 403, 404))
+        return r.json() if r.status_code < 400 else self.list_all("saves")
+
     def list_devices(self) -> List[Dict]:
         r = self._request("GET", "/api/devices", timeout=30, ok=(401, 403, 404, 405))
         return r.json() if r.status_code < 400 else []

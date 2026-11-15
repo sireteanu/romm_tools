@@ -53,7 +53,12 @@ DEFAULT_OPTIONS = {
     "map": {},                    # your own actions: {download folder/path: action}
     "skip_names": ["media"],      # folders with these names (wildcards allowed) are never read or
                                   # listed, and RomM is told to ignore them too
+    "gamelist_metadata": False,   # config.yml: RomM's scans take names etc. from gamelist.xml first
+    "gamelist_export": False,     # config.yml: RomM writes gamelist.xml into the platform folders after scans
 }
+
+# RomM's default metadata priority (config.example.yml, RomM 5.4); "gamelist first" moves gamelist to the top.
+ROMM_METADATA_PRIORITY = ["igdb", "moby", "ss", "ra", "launchbox", "gamelist", "hasheous", "flashpoint", "steam", "hltb"]
 # Settings of older versions (platform links, RomM folder, layout, variants, mode) are ignored.
 
 
@@ -485,6 +490,16 @@ class Mapping:
         versions = {p["slug"]: VERSIONS[p["slug"]] for p in self.platforms if p["slug"] in VERSIONS}
         if versions:
             lines += ["system:", "  versions:"] + [f"    {q(k)}: {q(v)}" for k, v in versions.items()] + [""]
+        if self.opt.get("gamelist_metadata") or self.opt.get("gamelist_export"):
+            lines.append("scan:")
+            if self.opt.get("gamelist_metadata"):
+                order = ["gamelist"] + [s for s in ROMM_METADATA_PRIORITY if s != "gamelist"]
+                lines += ["  # names, descriptions etc. come from your gamelist.xml files first",
+                          "  priority:", "    metadata:"] + [f"      - {s}" for s in order]
+            if self.opt.get("gamelist_export"):
+                lines += ["  # RomM writes gamelist.xml into the platform folders after each scan (merged into existing ones)",
+                          "  gamelist:", "    export: true"]
+            lines.append("")
         return "\n".join(lines)
 
     def summary(self) -> dict:

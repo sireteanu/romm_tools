@@ -71,7 +71,7 @@ def test_romm_settings_from_rom_sync_are_converted(env):
     rows = {r["path"]: r for r in d["rows"]}
     assert rows["lolroms/Konami - Picno"]["value"] == "exclude"
     assert rows["lolroms/Nintendo/Super Famicom"]["value"] == "snes"
-    assert d["options"] == {"skip_names": ["media"]}, "settings of the platform links era are ignored"
+    assert d["options"] == {"skip_names": ["media"], "gamelist_metadata": False, "gamelist_export": False}, "settings of the platform links era are ignored"
 
 
 def test_settings_from_the_platform_links_versions_still_load(env):
@@ -85,7 +85,7 @@ def test_settings_from_the_platform_links_versions_still_load(env):
          "variants": False, "links_dir": env.path("roms")}))
     server, c = env.start()
     d = c.get("/api/romm").get_json()
-    assert d["error"] is None and d["options"] == {"skip_names": ["media"]}
+    assert d["error"] is None and d["options"] == {"skip_names": ["media"], "gamelist_metadata": False, "gamelist_export": False}
     assert f'- {os.path.join(rom, "amigacdtv")}:/romm/library/roms/commodore-cdtv\n' in d["outputs"]["volumes"]
 
 

@@ -288,3 +288,24 @@ def api_names_undo():
     return S.jsonify({**names_view(), "done": len(done), "failed": failed})
 
 
+
+
+@router.post("/api/names/export")
+def api_names_export():
+    """Ask RomM to write gamelist.xml files (its names, descriptions and media) into the folders of the platforms
+    on the RomM library page. RomM merges into an existing gamelist.xml."""
+    client = S.romm_client()
+    if client is None:
+        return S.jsonify({"error": "No RomM address is set (ROMM_URL in the container settings)."}, 400)
+    slugs = {slug for slug, _folder in names_mapped_folders()}
+    if not slugs:
+        return S.jsonify({"error": "No platform folders on the RomM library page yet."}, 400)
+    try:
+        ids = [p["id"] for p in client.list_platforms() if p.get("slug") in slugs]
+        if not ids:
+            return S.jsonify({"error": "None of those platforms are in your RomM library yet."}, 400)
+        client.export_gamelists(ids)
+    except Exception as e:  # noqa: BLE001
+        return S.jsonify({"error": f"RomM couldn't write the gamelists: {e}"}, 502)
+    S.log(f"Game names: RomM wrote gamelist.xml for {len(ids)} platform(s)")
+    return S.jsonify({"ok": True, "platforms": len(ids)})

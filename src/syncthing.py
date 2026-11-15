@@ -22,7 +22,10 @@ _cache: Dict[str, tuple] = {}
 
 
 def configured() -> bool:
-    cfg = get_config()
+    try:
+        cfg = get_config()
+    except Exception:  # noqa: BLE001 - save sync not set up
+        return False
     return bool(getattr(cfg, "SYNCTHING_URL", "") and getattr(cfg, "SYNCTHING_API_KEY", ""))
 
 

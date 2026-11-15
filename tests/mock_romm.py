@@ -370,10 +370,19 @@ def _kind(kind: str) -> str:
 
 
 @app.get("/api/{kind}")
-def list_assets(kind: str, rom_id: Optional[int] = None, platform_id: Optional[int] = None):
+def list_assets(kind: str, rom_id: Optional[int] = None, platform_id: Optional[int] = None,
+                device_id: Optional[str] = None):
     items = S.assets[_kind(kind)]
     if rom_id is not None:
         items = [i for i in items if i["rom_id"] == rom_id]
+    if device_id and kind == "saves":   # RomM 5.4: with a device, each save lists which devices hold it
+        out = []
+        for i in items:
+            syncs = [{"device_id": d, "device_name": (S.devices.get(d) or {}).get("name"), "last_synced_at": at,
+                      "is_untracked": False, "is_current": at >= i["updated_at"]}
+                     for (d, sid), at in S.device_sync.items() if sid == i["id"]]
+            out.append({**i, "device_syncs": syncs})
+        return out
     return items
 
 

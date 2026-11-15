@@ -702,7 +702,8 @@ def romm_view(fresh=False, reuse=False):
     sources = saved.get("sources") or []
     base = {"sources": sources, "depths": romm_setup(saved)[2], "error": None,
             "links_dir": romm_links_dir(saved, sources),
-            "options": {"skip_names": opt["skip_names"]}}
+            "options": {"skip_names": opt["skip_names"], "gamelist_metadata": bool(opt.get("gamelist_metadata")),
+                        "gamelist_export": bool(opt.get("gamelist_export"))}}
     if ROMM_BACKGROUND and (romm_job_lock.locked() or romm_read_due(saved, fresh, reuse)):
         start_romm_read(fresh=fresh)
         return {**base, "reading": romm_progress()}
@@ -913,6 +914,9 @@ def api_romm_options(body: Any = Body(None)):
                 if n.casefold() not in {x.casefold() for x in names}:
                     names.append(n)
             cur["skip_names"] = names
+        for flag in ("gamelist_metadata", "gamelist_export"):
+            if flag in body:
+                cur[flag] = bool(body[flag])
         if cur.get("depths"):                 # only folders still in the list
             cur["depths"] = {k: v for k, v in cur["depths"].items() if k in (cur.get("sources") or [])}
         romm_save(cur)

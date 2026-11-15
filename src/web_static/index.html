@@ -352,7 +352,7 @@ select option, select optgroup { background: var(--panel); color: var(--text); }
     <div>romm_tools<a class="ver" id="ver" target="_blank" rel="noopener" title="Release notes"></a> <small id="romm-url"></small></div>
     <a class="upd" id="upd" target="_blank" rel="noopener" hidden></a>
   </div>
-  <nav class="nav"><a href="#" data-view="dash" class="on">Dashboard</a><a href="#saves" data-view="sav">Saves</a><a href="#platforms" data-view="plat">Platforms <span class="n" id="nav-unmapped" hidden></span></a><a href="#recycle" data-view="bin">Recycle bin <span class="n" id="nav-bin" style="background:var(--surface-hover);color:var(--text)" hidden></span></a><span class="sep" data-feature="rom_folders" hidden></span><a href="roms/#links" data-feature="rom_folders" hidden title="Folders of links for each emulation frontend">Frontend links</a><a href="roms/#romm" data-feature="rom_folders" hidden title="Which of your ROM folders is which RomM platform">RomM library</a><a href="roms/#names" data-feature="rom_folders" hidden title="Give RomM the game names from your frontends' gamelist.xml">Game names</a><span class="sep" data-feature="rom_folders" hidden></span><a href="#logs" data-view="log">Logs</a><a href="#settings" data-view="set">Settings</a></nav>
+  <nav class="nav"><a href="#" data-view="dash" class="on">Dashboard</a><a href="#saves" data-view="sav">Saves</a><a href="#platforms" data-view="plat">Platforms <span class="n" id="nav-unmapped" hidden></span></a><a href="#devices" data-view="dev">Devices</a><a href="#recycle" data-view="bin">Recycle bin <span class="n" id="nav-bin" style="background:var(--surface-hover);color:var(--text)" hidden></span></a><span class="sep" data-feature="rom_folders" hidden></span><a href="roms/#links" data-feature="rom_folders" hidden title="Folders of links for each emulation frontend">Frontend links</a><a href="roms/#romm" data-feature="rom_folders" hidden title="Which of your ROM folders is which RomM platform">RomM library</a><a href="roms/#names" data-feature="rom_folders" hidden title="Give RomM the game names from your frontends' gamelist.xml">Game names</a><span class="sep" data-feature="rom_folders" hidden></span><a href="#logs" data-view="log">Logs</a><a href="#settings" data-view="set">Settings</a></nav>
   <div class="spacer"></div>
   <span class="pill" id="conn"><span class="dot"></span><span>connecting…</span></span>
   <span class="pill" id="mode-pill" title="Sync mode"></span>
@@ -487,6 +487,24 @@ select option, select optgroup { background: var(--panel); color: var(--text); }
       <div id="sv-job" hidden style="padding:12px 20px;border-bottom:1px solid var(--line)"><div class="progress-meta"><span id="sv-job-text"></span><span id="sv-job-n"></span></div><div class="bar" style="margin:8px 0 0"><i id="sv-job-bar"></i></div></div>
       <div style="overflow:auto"><table class="hist sv-table"><thead><tr><th style="width:28px"><input type="checkbox" id="sv-all" title="Select everything shown"></th><th>File</th><th class="h-sm">In your folder</th><th class="h-sm">On RomM</th><th>Status</th></tr></thead><tbody id="sv-rows"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody></table></div>
       <div id="sv-more" style="padding:12px 20px;text-align:center" hidden><button class="btn small" id="sv-more-btn">Show more games</button></div>
+    </div>
+  </section>
+</main>
+
+<main class="wrap" id="view-dev" hidden>
+  <section>
+    <div class="card">
+      <div class="pf-head">
+        <div style="flex:1;min-width:260px">
+          <h3>Devices</h3>
+          <p>Which device last synced each save, and whether it has the newest version. RomM's list comes from RomM 5.4+ with romm_tools registered as a device (Settings → RomM connection); the Syncthing list from the Syncthing integration.</p>
+        </div>
+        <button class="btn" id="dev-reload">Reload</button>
+      </div>
+      <div id="dev-st" style="padding:0 20px"></div>
+      <div class="sv-tools"><div class="search" style="min-width:200px"><span style="color:var(--faint)">⌕</span><input id="dev-q" placeholder="Search games…" autocomplete="off"></div>
+        <label class="chk" style="padding:0"><input type="checkbox" id="dev-behind"><span>Only saves a device is behind on</span></label></div>
+      <div style="overflow:auto"><table class="hist dev-table"><thead id="dev-head"></thead><tbody id="dev-rows"><tr><td class="empty">Loading…</td></tr></tbody></table></div>
     </div>
   </section>
 </main>
@@ -1130,6 +1148,30 @@ async function loadEmu(){
     });
   } catch(e) { box.className = "hlp"; box.textContent = e.message; }
 }
+let devData = null;
+async function loadDevices(fresh){
+  $("#dev-rows").innerHTML = `<tr><td class="empty">Loading…</td></tr>`;
+  try { devData = await api("api/devices" + (fresh ? "?fresh=true" : "")); renderDevices(); }
+  catch(e){ $("#dev-rows").innerHTML = `<tr><td><div class="notice bad" style="margin:0">${esc(e.message)}</div></td></tr>`; }
+}
+function renderDevices(){
+  const d = devData; if (!d) return;
+  const st = d.syncthing || {};
+  $("#dev-st").innerHTML = (st.configured && !st.error ? `<div class="devs" style="padding:0 0 14px">${(st.devices||[]).map(v => `<div class="dev"><div class="n"><span class="dot ${v.connected?"on":""}"></span>${esc(v.name)} <span class="chip">Syncthing</span></div><div class="m">${v.connected?"Connected":"Not connected"}${v.completion!=null?` · ${v.completion>=100?"up to date":v.completion+"% synced"}`:""}</div></div>`).join("")}</div>` : "")
+    + (d.registered ? "" : `<div class="notice" style="margin:0 0 14px">romm_tools isn't registered as a RomM device, so RomM can't say which device holds which save. It registers itself at startup on RomM 5.4+ when its login may manage devices (devices.write) — or <a href="#settings">pair it with RomM</a>.</div>`);
+  const devs = d.romm_devices || [];
+  $("#dev-head").innerHTML = `<tr><th>Save</th><th class="h-sm">Newest on RomM</th>${devs.map(v=>`<th title="${esc(v.client||"")}${v.last_seen?" · last seen "+esc(ago(v.last_seen)):""}">${esc(v.name)}${v.this_app?" <span class=\"chip accent\">this app</span>":""}</th>`).join("")}</tr>`;
+  const q = $("#dev-q").value.trim().toLowerCase(), behind = $("#dev-behind").checked;
+  const rows = (d.rows||[]).filter(r => (!q || r.game.toLowerCase().includes(q) || r.file.toLowerCase().includes(q))
+    && (!behind || devs.some(v => r.syncs[v.id] && !r.syncs[v.id].current)));
+  $("#dev-rows").innerHTML = rows.slice(0, 500).map(r => `<tr><td><b>${esc(r.game)}</b><div style="color:var(--muted);font-family:var(--mono);font-size:12px">${esc(r.file)} · ${esc(r.system)}</div></td>
+    <td class="h-sm" style="white-space:nowrap">${ago(r.updated_at)}${r.origin?`<div style="color:var(--muted);font-size:12px">from ${esc(r.origin)}</div>`:""}</td>
+    ${devs.map(v => { const s = r.syncs[v.id]; return `<td style="white-space:nowrap">${!s ? `<span class="none" style="color:var(--faint)">—</span>` : s.current ? `<span class="chip ok">up to date</span>` : `<span class="chip warn">behind</span>`}${s && s.at ? `<div style="color:var(--muted);font-size:12px">${ago(s.at)}</div>` : ""}</td>`; }).join("")}</tr>`).join("")
+    || `<tr><td colspan="${2+devs.length}" class="empty">${(d.rows||[]).length ? "Nothing matches." : "No saves to show yet."}</td></tr>`;
+}
+$("#dev-reload").onclick = () => loadDevices(true);
+$("#dev-q").oninput = () => renderDevices();
+$("#dev-behind").onchange = () => renderDevices();
 let pairTimer = null;
 async function loadRommConn(){
   clearTimeout(pairTimer);
@@ -1474,7 +1516,8 @@ $("#log-follow").onchange = () => loadLogs();
 
 // ---------- routing ----------
 function route(){
-  const view = {"#platforms":"plat", "#settings":"set", "#logs":"log", "#recycle":"bin", "#saves":"sav"}[location.hash] || "dash";
+  const view = {"#platforms":"plat", "#settings":"set", "#logs":"log", "#recycle":"bin", "#saves":"sav", "#devices":"dev"}[location.hash] || "dash";
+  $("#view-dev").hidden = view!=="dev"; if (view==="dev") loadDevices();
   $("#view-sav").hidden = view!=="sav"; if (view==="sav" && !sv2.loaded) loadSaves();
   $("#view-dash").hidden = view!=="dash"; $("#view-plat").hidden = view!=="plat"; $("#view-set").hidden = view!=="set"; $("#view-log").hidden = view!=="log"; $("#view-bin").hidden = view!=="bin";
   document.querySelectorAll(".nav a").forEach(a => a.classList.toggle("on", a.dataset.view === view));

@@ -230,3 +230,22 @@ def test_names_without_romm(tmp_path, monkeypatch):
     v = client.get("/api/names").get_json()
     assert v["romm"] is False and v["rows"] == []
     assert client.post("/api/names/apply", json={"changes": [{"id": 1, "name": "x"}]}).status_code == 400
+
+
+def test_ask_romm_to_write_gamelists(app):
+    env, server, client, fake, extra = app
+    fake.exported = []
+    fake.list_platforms = lambda: [{"id": 1, "slug": "snes"}, {"id": 2, "slug": "gba"}, {"id": 3, "slug": "n64"}]
+    fake.export_gamelists = lambda ids: fake.exported.append(sorted(ids))
+    r = client.post("/api/names/export").get_json()
+    assert r["ok"] and fake.exported == [[1, 2]]
+
+
+def test_config_yml_gamelist_options(app):
+    env, server, client, fake, extra = app
+    y = client.get("/api/romm").get_json()["outputs"]["config"]
+    assert "scan:" not in y
+    d = client.put("/api/romm/options", json={"gamelist_metadata": True, "gamelist_export": True}).get_json()
+    y = d["outputs"]["config"]
+    assert "    metadata:\n      - gamelist\n      - igdb" in y and "  gamelist:\n    export: true" in y
+    assert d["options"]["gamelist_metadata"] is True

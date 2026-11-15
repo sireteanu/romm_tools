@@ -418,6 +418,15 @@ def create_app(cfg) -> FastAPI:
         st.set_folder_emulator(body.folder, name or None)
         return _platforms_payload()
 
+    @app.get("/api/devices")
+    def devices_overview(fresh: bool = False):
+        """Devices page: which devices last synced each save (RomM 5.4+) and the Syncthing devices."""
+        from . import device_overview
+        try:
+            return device_overview.overview(cfg.ROMM_CREDENTIALS, force=fresh)
+        except Exception as e:
+            raise HTTPException(502, f"Couldn't read the devices from RomM: {e}")
+
     # region standalone emulators (src/emusaves.py)
     @app.get("/api/emulators")
     def emulators_list():

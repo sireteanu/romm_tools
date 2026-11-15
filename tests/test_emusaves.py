@@ -6,7 +6,6 @@ import zipfile
 
 import pytest
 
-from tests.test_romm_client import romm  # noqa: F401  (the mock RomM fixture)
 from tests import mock_romm
 
 
@@ -18,7 +17,7 @@ def sfo(title: str) -> bytes:
 
 
 @pytest.fixture
-def setup(romm, tmp_path, monkeypatch):  # noqa: F811
+def setup(romm, tmp_path, monkeypatch):
     monkeypatch.setenv("DATA_DIR", str(tmp_path / "data"))
     (tmp_path / "data").mkdir()
     from src import emusaves, sync_engine
@@ -67,7 +66,7 @@ def setup(romm, tmp_path, monkeypatch):  # noqa: F811
     return emusaves, Srv(), tmp_path, backups
 
 
-def test_duckstation_per_game_card_and_shared_card(setup, romm):  # noqa: F811
+def test_duckstation_per_game_card_and_shared_card(setup, romm):
     emusaves, srv, tmp, _ = setup
     cards = tmp / "duck"
     cards.mkdir()
@@ -87,7 +86,7 @@ def test_duckstation_per_game_card_and_shared_card(setup, romm):  # noqa: F811
     assert (cards / "Crash Bandicoot_1.mcd").read_bytes() == b"newer from deck"
 
 
-def test_ppsspp_folder_is_one_zipped_save_named_like_romm(setup, romm):  # noqa: F811
+def test_ppsspp_folder_is_one_zipped_save_named_like_romm(setup, romm):
     emusaves, srv, tmp, _ = setup
     sd = tmp / "SAVEDATA"
     (sd / "UCUS98711DATA00").mkdir(parents=True)
@@ -108,7 +107,7 @@ def test_ppsspp_folder_is_one_zipped_save_named_like_romm(setup, romm):  # noqa:
     assert (sd / "UCUS98711DATA01" / "DATA.BIN").read_bytes() == b"other save"
 
 
-def test_unmatched_until_linked(setup, romm):  # noqa: F811
+def test_unmatched_until_linked(setup, romm):
     emusaves, srv, tmp, _ = setup
     cards = tmp / "duck"
     cards.mkdir()
@@ -122,7 +121,7 @@ def test_unmatched_until_linked(setup, romm):  # noqa: F811
     assert emusaves.sync_all(srv)["pushed"] == 1
 
 
-def test_pcsx2_card_conflict_waits(setup, romm):  # noqa: F811
+def test_pcsx2_card_conflict_waits(setup, romm):
     emusaves, srv, tmp, backups = setup
     mc = tmp / "memcards"
     mc.mkdir()

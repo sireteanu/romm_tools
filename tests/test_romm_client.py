@@ -1,35 +1,10 @@
 """The shared RomM client against the mock RomM (tests/mock_romm.py) over real HTTP: devices, conflicts RomM
 reports (409), RomM 5.5's held saves, pairing, memory cards and the supported platform list."""
-import socket
-import threading
 import time
 
 import pytest
-import uvicorn
-
 from src.romm_client import RommClient, RommConflict
 from tests import mock_romm
-
-
-@pytest.fixture
-def romm(tmp_path):
-    mock_romm.S.__init__()
-    mock_romm.seed_demo()
-    sock = socket.socket()
-    sock.bind(("127.0.0.1", 0))
-    port = sock.getsockname()[1]
-    sock.close()
-    server = uvicorn.Server(uvicorn.Config(mock_romm.app, host="127.0.0.1", port=port, log_level="error"))
-    t = threading.Thread(target=server.run, daemon=True)
-    t.start()
-    for _ in range(100):
-        if server.started:
-            break
-        time.sleep(0.05)
-    client = RommClient(romm_url=f"http://127.0.0.1:{port}", auth_type="api", romm_api_token="x")
-    yield client
-    server.should_exit = True
-    t.join(timeout=5)
 
 
 def test_register_device_once(romm):
@@ -120,3 +95,23 @@ def test_pairing_from_the_settings_page_saves_the_token(romm, tmp_path, monkeypa
     assert fresh.auth_type == "api" and fresh.device_id == romm.device_id
     devices.forget(fresh, ("http", ""))
     assert not devices.has_paired_token() and fresh.auth_type == "http"
+
+
+def test_devices_page_lists_who_synced_what(romm, tmp_path):
+    from types import SimpleNamespace
+    from src import device_overview
+    from src.sync_state import STATE
+    romm.device_id = romm.register_device("romm_tools on test", "2.0.0")
+    f = tmp_path / "Lantern Keep (USA).srm"
+    f.write_bytes(b"mine")
+    romm.upload("saves", f, 13, None)
+    game = SimpleNamespace(name="Lantern Keep (USA)", platform="snes", is_matched=True, romm_id=13,
+                           romm_row={"platform_display_name": "SNES"})
+    STATE.orchestrator = SimpleNamespace(lcl=SimpleNamespace(games={"x": game}))
+    try:
+        d = device_overview.overview(romm, force=True)
+    finally:
+        STATE.orchestrator = None
+    row = next(r for r in d["rows"] if r["file"] == "Lantern Keep (USA).srm")
+    assert row["syncs"][romm.device_id]["current"] is True
+    assert d["romm_devices"][0]["this_app"] is True
