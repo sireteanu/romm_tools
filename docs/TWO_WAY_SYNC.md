@@ -25,8 +25,9 @@ Files are keyed by type, RomM ROM id and file name, the same exact-name match th
 On the next sync each side is compared to its baseline:
 - **local changed** = the MD5 of the local file differs from `local_hash`
 - **RomM changed** = a different RomM id, a different `updated_at`, or (when available) a different content hash
+  (a different hash counts even when `updated_at` is within the same second)
 
-## Decision table (`src/sync_engine.py → decide()`)
+## Decision table (`src/sync_rules.py → decide()`)
 
 | Local | RomM | Baseline | Result |
 |---|---|---|---|
@@ -81,3 +82,25 @@ A full sync reads the RomM library (paginated), then **all** saves and **all** s
 | Check before acting | `GET /api/{saves,states}/{id}` |
 | Download | `GET /api/{saves,states}/{id}/content` (RomM 5.x), falling back to the item's `download_path` |
 | Covers, screenshots, platform icons | `path_cover_small`, `merged_screenshots`, state `screenshot.download_path`, `/assets/platforms/<slug>.svg` |
+
+## Additions in romm_tools 2.0
+
+- **RomM as referee (RomM 5.4+).** romm_tools registers as a RomM device and sends its `device_id` and
+  the file's MD5 (`content_hash`) with each upload. If RomM's copy changed since this device last synced
+  it, RomM refuses with 409. romm_tools never forces past that: nothing is overwritten, and the next sync
+  sees the change on RomM and offers it as a conflict. Only when you resolve a conflict with *keep mine*
+  is the upload sent with `overwrite`. After a download RomM gets a receipt (`/api/saves/{id}/downloaded`).
+- **RomM 5.5 snapshots.** A save that RomM 5.5 holds in a snapshot can't be replaced in place (409 on
+  `PUT`); the new copy is uploaded as the next version (`POST`) instead.
+- **Another emulator.** With an emulator set for a system folder (Platforms page), a download whose RomM
+  copy was written by a different emulator (`emulator` on the save; `snes9x` = `Snes9x` =
+  `snes9x_libretro`) is not automatic: it waits for your approval.
+- **RetroArch Cloud Sync.** A system folder can be left to RetroArch Cloud Sync: romm_tools then doesn't
+  sync it at all, like a folder switched off. On full syncs, games romm_tools syncs whose RomM saves were
+  uploaded by a RetroArch Cloud Sync device are listed on the dashboard.
+- **Standalone emulators** (`src/emusaves.py`). Per-game units (DuckStation per-game cards, Dolphin GCI
+  files of one game, PPSSPP save folders) follow the same table, keyed `emu:<folder id>:<name>`, with
+  deletions never carried over. Zipped units compare the list of (file, MD5) inside rather than zip bytes.
+  Shared memory cards follow the short version: local changed = MD5 differs from the baseline, RomM
+  changed = a newer card version than the baseline's; both changed -> you choose; first sight with
+  different content -> the newer side, or you choose if RomM's is newer.

@@ -62,6 +62,10 @@ Use both, or either one on its own. Made for Unraid; runs on any Linux Docker ho
 | Saves page | Every save and state on both sides with filters, bulk delete/download/upload, version history (put back any copy), `.zip` export, and linking saves to RomM games by hand. |
 | Deletions | Synced both ways through a recycle bin, with safety rails (only unchanged files, never more than 10 at once). |
 | Platforms | Each system folder of your saves matched to a RomM platform, using RomM's own platform list and folder aliases. |
+| RomM devices | romm_tools registers as a RomM device (RomM 5.4+), so RomM refuses to overwrite a save that changed meanwhile; pair with RomM by code instead of an API token; works with RomM 5.5's save snapshots. |
+| Devices page | For each save, which device last synced it and whether it's up to date, plus your Syncthing devices. |
+| Standalone emulators | DuckStation and PCSX2 memory cards, Dolphin GameCube saves, PPSSPP save folders: per-game saves as RomM saves, shared cards as RomM memory cards. |
+| RetroArch Cloud Sync | Per system: synced by romm_tools, left to RetroArch Cloud Sync, or off; a warning when both sync the same games. Emulator per system, with approval for saves written by another emulator. |
 | Settings, notifications | Change behaviour from the page; Discord, ntfy, Gotify, Pushbullet or webhook notifications; optional Syncthing integration. |
 | Disks sleep | RomM is polled through its API; your folders are only re-read when something changed. |
 
@@ -72,7 +76,7 @@ Use both, or either one on its own. Made for Unraid; runs on any Linux Docker ho
 | Frontend links | A grid with one row per folder in your source folders and one column per frontend. Type the name a frontend should see; **Resync** makes `<mapping folder>/<frontend>/<name>` links, optionally with each system's `media/` folder. |
 | Status, schedule | Rows marked *New*, *Unmapped*, *Missing*; duplicate names highlighted. Scans and resyncs on their own schedule; a resync changes only what differs. |
 | RomM library | Pick the RomM platform for any of your download folders (nested too); get the **volume lines** for RomM's compose file (each folder mounted as `roms/<platform>`) and a `config.yml` with categories for platforms with subfolders. One-time import of an old RomM mapping CSV. |
-| Game names | RomM's name for each game next to the `<name>` in your frontends' `gamelist.xml` (also gamelists in subfolders). Where they differ: give RomM the gamelist's name, type your own, or keep RomM's - one game or many at once, with **Undo**. Only the name shown in RomM changes. |
+| Game names | RomM's name for each game next to the `<name>` in your frontends' `gamelist.xml` (also gamelists in subfolders). Where they differ: give RomM the gamelist's name, type your own, or keep RomM's - one game or many at once, with **Undo**. Only the name shown in RomM changes. Or let RomM read the gamelists itself, and write them back (`config.yml` options, *Let RomM write gamelist.xml*). |
 
 ### Shared
 
@@ -226,7 +230,7 @@ See [ROM folders → Settings and files](docs/rom-folders.md#settings-and-files)
  ┌──────────────────────────────────────────────────────────────────────────────┐
  │  web server :8080 (FastAPI)       optional password, one menu, one log       │
  │   ├─ /            save sync pages ── src/web.py, src/web_static/             │
- │   └─ /roms/       ROM folders pages ─ src/mapper/ (Flask app, mounted)       │
+ │   └─ /roms/       ROM folders pages ─ src/mapper/ (FastAPI app, mounted)     │
  │                                                                              │
  │  save sync loop (watch / periodic)   ROM folders scheduler (scan / resync)   │
  │   /syncdata ⇄ RomM API               source folders → links in DEST_PATH     │
@@ -263,7 +267,10 @@ needs it.
 | `GET /api/status` · `POST /api/sync` | Everything the dashboard shows · sync now |
 | `POST /api/actions/{id}` · `POST /api/actions/bulk` | Approve / reject / resolve pending items |
 | `POST /api/errors/retry` · `POST /api/errors/dismiss` | Failed files |
-| `GET /api/platforms` · `POST /api/platforms/refresh` · `PUT /api/platforms/mapping` · `PUT /api/platforms/enabled` | Platforms page |
+| `GET /api/platforms` · `POST /api/platforms/refresh` · `PUT /api/platforms/mapping` · `PUT /api/platforms/mode {folder, mode}` · `PUT /api/platforms/emulator {folder, emulator}` | Platforms page (`mode`: `sync`, `off` or `cloud` = RetroArch Cloud Sync; `/enabled` still works) |
+| `GET /api/devices[?fresh=true]` | Devices page: RomM devices, which device holds which save, Syncthing devices |
+| `GET /api/romm/device` · `POST /api/romm/pair/start` · `/cancel` · `/forget` | RomM device registration and pairing |
+| `GET /api/emulators` · `POST /api/emulators {kind, path, platform}` · `DELETE /api/emulators/{id}` · `POST /api/emulators/sync` · `PUT /api/emulators/link` | Standalone emulator folders |
 | `GET /api/saves` · `POST /api/saves/action` · `GET /api/saves/job` · `GET /api/saves/{id}/versions` (`/download`, `/restore`) · `POST /api/saves/zip` | Saves page |
 | `GET /api/romm/search` · `PUT /api/links` | Link a save to a RomM game by hand |
 | `GET /api/recycle` · `POST /api/recycle/empty` · `POST /api/recycle/{id}/restore` · `/delete` · `GET /api/recycle/{id}/download` | Recycle bin |
@@ -287,6 +294,7 @@ needs it.
 | `GET /roms/api/romm/progress` | The background read: `running`, `source` / `sources`, `path`, `done` / `total`, `current`, `error` |
 | `GET /roms/api/names[?fresh=1]` · `GET /roms/api/names/progress` | Game names: rows where RomM's name differs from the gamelist's, gamelists read, platforms without one, summary (`{reading}` while gamelists and RomM are read in the background) |
 | `PUT /roms/api/names/options {folders}` · `PUT /roms/api/names/ignore {ids, ignore}` | Extra gamelist folders · keep RomM's name for games (until the gamelist name changes) |
+| `POST /roms/api/names/export` | Ask RomM to write `gamelist.xml` into the platform folders of the RomM library page |
 | `POST /roms/api/names/apply {changes: [{id, name}]}` · `POST /roms/api/names/undo` | Rename in RomM (only `name` is sent) · put back the last batch |
 
 ---
@@ -300,23 +308,31 @@ src/web.py               the web server (FastAPI): save sync API, /api/features,
 src/web_static/          save sync pages (one HTML file, no build step)
 src/config.py            settings from the environment, SAVE_SYNC / ROM_FOLDERS switches
 src/sync_orchestrator.py save sync loop: watch / periodic, RomM poller      (amn-96, extended)
-src/sync_engine.py       two-way decisions, transfers, backups               (fork)
+src/sync_engine.py       transfers, backups, conflicts, emulator checks      (fork)
+src/sync_rules.py        the two-way decision rule (pure; docs/TWO_WAY_SYNC.md)
+src/sync_files.py        local files, fingerprints, dates and names
+src/sync_errors.py       errors in plain words
 src/sync_state.py        sync history, pending approvals, log sink           (fork)
 src/library_classes.py   local library scan and RomM matching                (amn-96, extended)
 src/games_class.py       per-game save/state handling                        (amn-96)
-src/romm_api_func.py     RomM API client                                     (amn-96, extended)
-src/platforms.py         RomM platform catalog from GitHub, platform mapping (fork)
+src/romm_client.py       the one RomM API client (both parts)                (amn-96's, rewritten)
+src/devices.py           romm_tools as a RomM device; pairing
+src/device_overview.py   Devices page data
+src/emusaves.py          standalone emulators (DuckStation, PCSX2, Dolphin, PPSSPP)
+src/platforms.py         one platform list (built-in, RomM's GitHub, your RomM), platform mapping
 src/manage.py            Saves page: inventory, bulk actions, history, zip   (fork)
 src/recycle.py           recycle bin                                         (fork)
 src/settings.py          Settings page values                                (fork)
 src/notify.py            notifications                                       (fork)
 src/syncthing.py         Syncthing integration (read-only)                   (fork)
 src/version.py           version and update check
-src/mapper/server.py     ROM folders (Flask): mapping storage, source folders, scan, resync,
-                         scheduler, RomM library endpoints                   (ROM Mapper)
+src/web_static/common.css styles both pages share (RomM's design tokens, top bar)
+src/mapper/server.py     ROM folders (FastAPI app under /roms/): mapping storage, source folders,
+                         scan, resync, scheduler, RomM library endpoints     (ROM Mapper)
+src/mapper/names.py      Game names endpoints
 src/mapper/links.py      link engine: desired links, apply only the differences (ROM Mapper)
 src/mapper/romm.py       RomM library: folder roles, platforms as mounts, categories, config.yml
-src/mapper/romm_slugs.py RomM's platform list (vendored)
+src/mapper/romm_slugs.py RomM's platform list (vendored; the offline part of src/platforms.py's list)
 src/mapper/gamelists.py  Game names: read gamelist.xml files, match them to RomM's games
 src/mapper/static/       ROM folders page (one HTML file, no build step)
 tests/                   save sync tests, mock RomM and demo data; test_romm_tools.py = the glue

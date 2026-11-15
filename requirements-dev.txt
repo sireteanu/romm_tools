@@ -4,3 +4,4 @@ httpx            # FastAPI TestClient
 pyflakes>=3
 flake8
 pillow           # tests/mock_romm.py artwork for the demo
+python-multipart>=0.0.9   # the mock RomM reads uploads (tests/mock_romm.py)

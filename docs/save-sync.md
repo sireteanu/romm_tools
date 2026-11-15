@@ -115,6 +115,9 @@ Files pulled from RomM are written into the same `<sync folder>/<system folder>/
 ### Still not a full RomM client
 This doesn't download ROMs or manage your library. For devices that can run a real RomM client (e.g. Grout), that's still the better choice. This tool is for the devices that can't.
 
+### RetroArch Cloud Sync
+Since RomM 5.4, RetroArch can sync saves straight with RomM (RetroArch's *Cloud Sync* pointed at RomM). If a device does that **and** its saves also reach RomM through Syncthing and romm_tools, the same save travels two ways and can bounce back and forth. Pick one path per system on the Platforms page (*Synced by*: romm_tools, RetroArch Cloud Sync, or not synced). The dashboard warns when RetroArch Cloud Sync uploads saves for games romm_tools also syncs (needs romm_tools registered as a device, see below).
+
 # Install
 
 See [Install](../README.md#install) in the README: one container for both parts. Save sync needs
@@ -138,6 +141,10 @@ folders part keeps running.
 ![Limited API Token Permissions](api_token_permissions.png)
 
 **`ROMM_USERNAME` / `ROMM_PASSWORD`** (required for http auth).
+
+**Pairing instead of a token** (RomM 5.4+): Settings → RomM connection → **Pair with RomM**. The page shows a short code and a link to RomM's pairing page; approve it there. RomM issues a token for this device, kept in `/data/romm_device.json` (readable by the app only), and it replaces the login above from then on. **Forget pairing** goes back to the container's login. If save sync wasn't running because no login was set, restart the container after pairing.
+
+**`DEVICE_SYNC`** (optional, default `auto`, also on the Settings page): register romm_tools as a RomM device (RomM 5.4+; the token needs `devices.write`). It shows up in RomM as *romm_tools on <host>*, and its device id goes with every upload and download. RomM then knows which version this app last synced: if a save changed on RomM in the meantime, RomM refuses the upload and you're asked instead of anything being overwritten. On RomM 5.5, saves held by a snapshot are uploaded as the next version. `off` = sync without a device (the behaviour before 2.0). Older RomM versions simply sync without one.
 
 **`ROMM_API_LIMIT`** (optional): page size when reading the RomM library. Default 500 (RomM allows up to 10,000). Only platforms that have a folder in your sync folders are read, and RomM is asked to skip the gallery extras it normally computes for every page, so even large libraries read quickly.
 
@@ -255,7 +262,9 @@ Each system folder in your sync folders (`snes`, `md`, `Nintendo 64`, …) has t
 
 ![Platforms page: each sync folder with the RomM platform it matches, how it was matched, and a searchable picker](screenshots/platforms.png)
 
-Use the **Sync** switch on a row to stop syncing a system (for example arcade) without removing its folder. Its files are left alone in both directions until you switch it back on.
+**Synced by** on each row: *romm_tools* (default), *RetroArch Cloud Sync* (RetroArch syncs this system with RomM itself, so romm_tools leaves it alone), or *Not synced* (for example arcade). Its files are left alone in both directions until you change it back.
+
+**Emulator** (optional) on each row: the emulator that writes this folder's saves (`mgba`, `snes9x`, `duckstation`, …). It's sent to RomM with uploads, and when RomM's newest copy was written by a different emulator, the download waits for your approval: saves from different emulators often don't load in each other. The Saves page shows which emulator wrote each RomM copy.
 
 Folders are resolved in this order, and most never need a mapping:
 
@@ -264,7 +273,7 @@ Folders are resolved in this order, and most never need a mapping:
 3. **RomM folder**: the folder has the same name as that platform's folder in *your* RomM library
 4. **RomM alias**: one of RomM's built-in folder aliases for Batocera / RetroBat / ES-DE names (`megadrive`, `amstradcpc`, `atarilynx`…)
 
-**Where the platform list comes from:** the full list of platforms RomM supports (459 at the time of writing) and RomM's folder aliases are downloaded from GitHub. Slugs and aliases come from [`rommapp/romm`](https://github.com/rommapp/romm), fetched at the tag that matches your RomM server's version when that tag exists, with display names from [`rommapp/docs`](https://github.com/rommapp/docs). The list is cached in `/data/romm_platforms.json` and refreshed weekly, or whenever you click **Update platform list from RomM GitHub**. If GitHub can't be reached, the cached list is used. In the picker, platforms that are already in your RomM library are listed first.
+**Where the platform list comes from:** your own RomM's list of supported platforms (`/api/platforms/supported`), which always matches your RomM version, plus the full list of platforms RomM supports (459 at the time of writing) and RomM's folder aliases are downloaded from GitHub. Slugs and aliases come from [`rommapp/romm`](https://github.com/rommapp/romm), fetched at the tag that matches your RomM server's version when that tag exists, with display names from [`rommapp/docs`](https://github.com/rommapp/docs). The list is cached in `/data/romm_platforms.json` and refreshed weekly, or whenever you click **Update platform list from RomM GitHub**. If GitHub can't be reached, the cached list is used. In the picker, platforms that are already in your RomM library are listed first.
 
 **Starting point:** on first start the mapping is pre-filled with the common MinUI/NextUI and Knulli folder names from the original project (for example `md` and `megadrive` → Sega Mega Drive/Genesis, `sfc` → SNES). After that you manage it only on the Platforms page. Remove an entry with ✕ to fall back to automatic matching. It's stored in `/data`, so it survives updates.
 
@@ -299,6 +308,27 @@ Under Settings → Syncthing, enter your Syncthing address (e.g. `http://YOUR-SE
 - the dashboard shows the devices sharing those folders, whether they're connected and how up to date they are.
 
 Only Syncthing's read-only REST API is used; nothing in Syncthing is changed. Also settable with `SYNCTHING_URL`, `SYNCTHING_API_KEY` and `SYNCTHING_FOLDERS` (comma-separated folder IDs).
+
+### Standalone emulators
+
+Settings → **Standalone emulators** syncs emulators that don't keep one save file per game. Map the emulator's folder into the container (for example `/path/to/syncthing/duckstation/memcards` → `/syncdata/emulators/duckstation/memcards`), then add it with its kind; the RomM platform is filled in.
+
+| Kind | Folder | Per game → RomM save | Shared → RomM memory card |
+|---|---|---|---|
+| DuckStation | `memcards/` | `<Game title>_1.mcd` (per-game cards) | `shared_card_1.mcd`, `shared_card_2.mcd` |
+| PCSX2 | `memcards/` | — | `Mcd001.ps2`… and folder memory cards (zipped) |
+| Dolphin | `GC/` (with `USA`/`EUR`/`JAP`) | GCI files of one game, as `GCI-<game code>.zip` | `MemoryCardA.USA.raw`… |
+| PPSSPP | `PSP/SAVEDATA/` | each save folder, as `PSP-<folder>.zip` | — |
+
+Per-game saves are matched to a RomM game by title (DuckStation's card name, PPSSPP's `PARAM.SFO` title). Anything else — Dolphin game codes, cards named by serial — is listed under the folder as *Not matched*: click it to link it to a RomM game once. PPSSPP folders use RomM's own `PSP-<folder>.zip` name, so a device using RetroArch Cloud Sync and romm_tools share the same RomM saves. Shared cards use RomM's memory cards (RomM 5.4+).
+
+The same rules apply as for the other saves: changes sync both ways, a backup is made before anything is overwritten, and unclear cases (changed on both sides) wait for you; for these files you choose *Keep mine* or *Keep RomM's*. Deletions are not carried over. In watch mode the folders are watched; a folder added on the page is watched after the next restart (it's synced right away and after every sync until then).
+
+### Devices page
+
+**Devices** in the menu lists, for each save of the games in your sync folders, which device last synced it, when, and whether that device has the newest version (*up to date* / *behind*), with your Syncthing devices on top. RomM keeps this record for devices it knows (RomM 5.4+), so romm_tools has to be registered as a device. Tick *Only saves a device is behind on* to see what a handheld still needs.
+
+![Devices page: each save with the devices that synced it and whether they're up to date](screenshots/devices.png)
 
 ### Health check
 

@@ -9,6 +9,49 @@ romm_tools continues two projects; their own changelogs are kept as they were:
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-11-15
+
+Ready for RomM's own device sync and RomM 5.5, saves of standalone emulators, and a tidier app
+underneath. Existing setups keep working: settings, data folder and stored files are unchanged.
+
+### New
+- **romm_tools is a RomM device** (RomM 5.4+). It registers itself as *romm_tools on <host>* and sends
+  its device id with uploads and downloads. RomM then knows which version this app last synced: if a
+  save changed on RomM in the meantime, RomM refuses the upload and you're asked instead of anything
+  being overwritten. Settings → RomM connection; `DEVICE_SYNC=off` turns it off.
+- **Pair with RomM instead of an API token** (RomM 5.4+): Settings → RomM connection → *Pair with RomM*,
+  then approve the short code in RomM. RomM issues a token for this device; *Forget pairing* goes back
+  to the login from the container settings.
+- **Standalone emulators** (Settings → Standalone emulators): DuckStation memory cards, PCSX2 memory
+  cards, Dolphin GameCube saves and PPSSPP save folders. Per-game saves sync as RomM saves (matched
+  by title, or linked by hand); cards shared by many games sync as RomM memory cards. PPSSPP folders
+  use RomM's own `PSP-<folder>.zip` name, so RetroArch Cloud Sync and romm_tools share them.
+- **Devices page**: for each save, which device last synced it and whether it has the newest version
+  (from RomM), plus your Syncthing devices.
+- **RetroArch Cloud Sync**: each system on the Platforms page can be synced by romm_tools, left to
+  RetroArch Cloud Sync, or not synced. The dashboard warns when RetroArch Cloud Sync also uploads
+  saves for games romm_tools syncs, which can make saves bounce back and forth.
+- **Emulator per system** (Platforms page): sent to RomM with uploads; the Saves page shows which
+  emulator wrote RomM's copy, and a download written by a different emulator waits for your approval.
+- **gamelist.xml through RomM**: on the RomM library page, `config.yml` can tell RomM to take names
+  from your gamelists first and to write gamelists after scans; the Game names page can ask RomM to
+  write `gamelist.xml` files now.
+
+### Improved
+- **RomM 5.5**: saves held by RomM 5.5's save snapshots can't be replaced in place; romm_tools then
+  uploads the new copy as the next version instead of failing.
+- RomM's download receipts are sent after each download, so RomM's device list stays right.
+- **One platform list** for both parts: the built-in list, RomM's GitHub, and your own RomM's list of
+  supported platforms (always right for your RomM version).
+- A different content hash on RomM counts as a change even within the same second.
+- The menu moves to its own row on narrower screens instead of being cut off.
+
+### Changed
+- ROM folders runs on the same web framework as the rest of the app (FastAPI); Flask and a2wsgi
+  are no longer needed. Addresses and behaviour are unchanged.
+- Under the hood: one RomM client for both parts, one shared stylesheet, the save sync engine and the
+  ROM folders server split into smaller modules, and unused code from the original one-way sync removed.
+
 ## [1.0.3] - 2026-10-31
 
 ### Improved

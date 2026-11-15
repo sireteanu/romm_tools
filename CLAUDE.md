@@ -6,8 +6,8 @@ RomM companion tools in one container, one process and one web page (port 8080):
   uvicorn, loguru, watchdog; page `src/web_static/index.html`.
 - **ROM folders** (`src/mapper/`, from sireteanu/rom-mapper): per-frontend folders of links into ROM
   folders, and which folders are which RomM platform (volume lines for RomM's compose file - Docker
-  mounts them). A Flask app mounted at `/roms/` in the FastAPI server through a2wsgi; page
-  `src/mapper/static/index.html`.
+  mounts them). Its own FastAPI app (`src/mapper/server.py`, Game names in `src/mapper/names.py`)
+  mounted at `/roms/` in the main server; page `src/mapper/static/index.html`.
 Python 3.10+, no build step, Docker (Unraid). README.md is the overview; docs/save-sync.md and
 docs/rom-folders.md are the full references; docs/user-guide.md is step by step.
 
@@ -39,8 +39,15 @@ and tests create real symlinks - run the tests on Linux (CI: `.github/workflows/
   `src/mapper/server.py` (served under `/roms/`). The ROM folders page uses **relative** addresses
   (`api/...`, `../api/...`) - never `"/api/...`; the menus link `roms/#links`, `roms/#romm` and
   `../#saves` etc. Basic auth covers everything but `/api/health`.
-- Both pages share RomM's design tokens and the `rs-theme` localStorage key; keep the top bar and
-  menu the same on both.
+- Both pages share RomM's design tokens and the top bar from `src/web_static/common.css` (served at
+  `/common.css`; the ROM folders page links `../common.css`) and the `rs-theme` localStorage key; keep
+  the menu the same on both.
+- RomM is reached only through `src/romm_client.py` (`RommClient`, alias `RommUser`): one session,
+  timeouts, `RommUnreachable` / `RommAuthError` / `RommConflict`. Newer RomM endpoints are used only
+  when the server has them (`at_least`, 404/405 tolerated); the mock RomM (`tests/mock_romm.py`,
+  shared `romm` fixture in `tests/conftest.py`) mirrors RomM 5.4 and RomM 5.5's held saves.
+- One platform list: `src/platforms.py` `known_platforms()` = built-in `romm_slugs.py` + RomM's GitHub
+  catalog + the user's RomM (`/api/platforms/supported`).
 - Logging: loguru everywhere (ROM folders' `log()` also feeds its Activity card); the Logs page shows
   both parts.
 - Version: `VERSION` (and `APP_VERSION` in the image) via `src/version.py`; ROM folders reports the
@@ -53,7 +60,15 @@ and tests create real symlinks - run the tests on Linux (CI: `.github/workflows/
   side is unchanged since the last sync, and more than 10 in one sync wait for approval.
 - The RomM check must not read the sync folders unless RomM changed (disks sleep); full folder reads
   only at startup, on Sync now and every `FULL_SCAN_INTERVAL_HOURS`.
-- Decisions follow docs/TWO_WAY_SYNC.md; a change to them updates that file and `tests/test_sync_engine.py`.
+- Decisions follow docs/TWO_WAY_SYNC.md (`src/sync_rules.py`); a change to them updates that file and
+  `tests/test_sync_engine.py`.
+- RomM device (RomM 5.4+, `src/devices.py`): uploads send `device_id` + `content_hash`; a 409 means
+  RomM's copy changed - never force it, let the next sync offer a conflict (`overwrite` only when the
+  user chose "keep mine"). A 409 on replacing (RomM 5.5 snapshot) -> upload as a new version.
+  The paired token lives in `/data/romm_device.json` (mode 600).
+- Standalone emulators (`src/emusaves.py`): per-game units -> RomM saves (PPSSPP as RomM's
+  `PSP-<folder>.zip`), shared cards -> RomM memory cards; baseline keys `emu:<folder id>:<name>`;
+  deletions are not carried over for these units.
 
 ## Rules - ROM folders
 - The mapping lives in `<config>/rom-mapper-mapping.json` (+ `.bak`); state in
@@ -81,7 +96,8 @@ and tests create real symlinks - run the tests on Linux (CI: `.github/workflows/
 - RomM reads never block the page: any read `romm_view` needs (full, or the quick re-check after
   30 s - `romm_read_due`) runs in the background (`start_romm_read`, `/api/romm/progress`) and the
   answer is `{reading}` meanwhile.
-  JSON answers over 4 KB are gzipped when the browser accepts it (`compress`). Tests set `server.ROMM_BACKGROUND = False` (conftest) to get rows directly.
+  JSON answers over 4 KB are gzipped when the browser accepts it (`GZipMiddleware`); answers go out
+  through the module's `jsonify(obj, status)` (a plain `JSONResponse`). Tests set `server.ROMM_BACKGROUND = False` (conftest) to get rows directly.
   Per-download-folder levels are `depths` in `romm-mapper.json` (missing = all levels).
   The folder cache is never reset by saving: its key (`romm_setup`) covers what changes the folders;
   choices/options pass `reuse=True` (no disk access at all). Excluded folders without a choice below
@@ -91,7 +107,7 @@ and tests create real symlinks - run the tests on Linux (CI: `.github/workflows/
 - Disk reads: RomM folder counts (`romm.folders_from_disk`) re-list only folders whose mtime changed,
   with a full read every hour and on Refresh (Unraid shares don't always update a folder's date);
   the page doesn't refresh while its tab is hidden; RomM's platform list comes from
-  `/roms/api/romm/platforms` once (built-in `romm_slugs.py` + newer ones from `src/platforms.py`'s catalog).
+  `/roms/api/romm/platforms` once (`src/platforms.py` `known_platforms()`).
 - The container sees one host folder at the same path; frontend links are absolute; RomM's platform
   folders are volumes of RomM's container (host paths).
 - Schedule settings are `scan_every`/`scan_unit` and `sync_every`/`sync_unit` (minutes, hours,

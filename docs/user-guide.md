@@ -46,6 +46,11 @@ ROMs and platforms and **read + write for saves/states (assets)** - nothing else
 in `ROMM_API_TOKEN` (Unraid: *RomM API token*) with `ROMM_URL` set to RomM's address, and restart
 the container. The [save sync reference](save-sync.md#romm) has a picture of a token that works.
 
+On RomM 5.4 or newer you can skip the token: set only `ROMM_URL`, open **Settings → RomM connection**,
+click **Pair with RomM**, approve the code in RomM, and restart the container. Either way romm_tools
+registers itself as a RomM device (*romm_tools on <host>*), which lets RomM refuse to overwrite a save
+that changed meanwhile - for that a token also needs `devices.read` and `devices.write`.
+
 ## 3. Your saves and states folders
 
 Save sync expects one subfolder per system (`snes`, `gba`, `Nintendo 64`, ...) in your saves and
@@ -79,6 +84,13 @@ history, bulk actions and *Link to a RomM game…* for saves whose names don't m
   Gotify, Pushbullet or a webhook. **Send test** checks it.
 - **Settings → Syncthing** (optional) waits for Syncthing to finish receiving a file before syncing
   it, and shows your devices on the dashboard.
+- **Platforms → Synced by**: if a device syncs a system with RomM through RetroArch Cloud Sync, set that
+  system to *RetroArch Cloud Sync* so the saves don't travel two ways. **Emulator** (optional) makes a
+  save written by another emulator wait for your approval.
+- **Settings → Standalone emulators**: add DuckStation or PCSX2 memory card folders, Dolphin's `GC`
+  folder or PPSSPP's `SAVEDATA` folder (mounted into the container first). Click a *Not matched* save
+  to link it to its RomM game.
+- **Devices** shows, for each save, which device last synced it and whether it's up to date.
 
 ## 6. Choose your source folders
 
@@ -175,6 +187,9 @@ in RomM is different.
 3. For each game: **Rename** gives RomM the gamelist's name - edit the *New name* box first to use
    your own. **Keep** leaves RomM's name and hides the game. Tick several games to do them at once.
 4. Changed your mind? **Undo last rename** puts the names back.
+5. The other way round: **Let RomM write gamelist.xml** writes RomM's names and media into the
+   gamelists of those platform folders (merged into existing ones). On the RomM library page,
+   *RomM takes game names … from your gamelist.xml files first* makes RomM use your gamelists on every scan.
 
 ## 12. Troubleshooting
 

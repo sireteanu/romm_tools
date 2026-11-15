@@ -162,9 +162,16 @@ RomM facts this relies on are listed in `src/mapper/romm.py`'s docstring - re-ch
 
 ![RomM library: download folders, platforms per folder and the RomM volume lines](screenshots/romm-library.png)
 
-The platform picker lists RomM's platforms from the built-in list (`src/mapper/romm_slugs.py`) plus
-any newer ones in the platform catalog save sync downloads from RomM's GitHub
-(`/data/romm_platforms.json`, refreshed weekly).
+The platform picker lists RomM's platforms from one list shared with save sync (`src/platforms.py`):
+the built-in list (`src/mapper/romm_slugs.py`), newer ones from RomM's GitHub, and your own RomM's
+list of supported platforms (`/data/romm_platforms.json`, refreshed weekly and at startup).
+
+**gamelist.xml** (two options on the page, both go into `config.yml`'s `scan:` section):
+- *RomM takes game names and details from your gamelist.xml files first* - puts `gamelist` at the top
+  of `scan.priority.metadata`, so RomM's scans use your frontends' names, descriptions and so on before
+  IGDB, ScreenScraper and the rest (the others keep RomM's default order).
+- *RomM writes gamelist.xml into the platform folders after each scan* - `scan.gamelist.export: true`.
+  RomM then changes files in your ROM folders: it merges its data into existing gamelists.
 
 ---
 
@@ -206,6 +213,11 @@ back, and *Only upper/lower case differs* finds names like `MOONLIT HARBOR`.
 
 Reading a big library takes a moment (it runs in the background with a progress bar). It happens when
 the page opens for the first time and on **Refresh** - nothing runs on a schedule.
+
+**The other direction.** *Let RomM write gamelist.xml* asks RomM (`POST /api/export/gamelist-xml`) to
+write its names, descriptions and media into `gamelist.xml` files in the platform folders of the RomM
+library page, merged into existing ones (RomM 5.x), so your frontends show RomM's names. Or let RomM read
+your gamelists on every scan with the `config.yml` option on the RomM library page.
 
 ---
 
