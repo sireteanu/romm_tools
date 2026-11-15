@@ -67,6 +67,18 @@ class FolderToggle(BaseModel):
     enabled: bool
 
 
+class EmuFolder(BaseModel):
+    kind: str
+    path: str
+    platform: Optional[str] = None
+
+
+class EmuLink(BaseModel):
+    folder: str
+    match: str
+    rom_id: Optional[int] = None
+
+
 class FolderMode(BaseModel):
     folder: str
     mode: str
@@ -405,6 +417,47 @@ def create_app(cfg) -> FastAPI:
             raise HTTPException(400, "An emulator name is at most 50 characters.")
         st.set_folder_emulator(body.folder, name or None)
         return _platforms_payload()
+
+    # region standalone emulators (src/emusaves.py)
+    @app.get("/api/emulators")
+    def emulators_list():
+        from . import emusaves
+        return {"kinds": emusaves.KINDS, "folders": emusaves.status()}
+
+    @app.post("/api/emulators")
+    def emulators_add(body: EmuFolder):
+        from . import emusaves
+        try:
+            entry = emusaves.add_folder(body.kind, body.path, body.platform)
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        STATE.add_activity("INFO", f"Emulator folder added: {entry['path']} ({emusaves.KINDS[entry['kind']]['label']})")
+        emusaves.schedule(1)
+        return {"kinds": emusaves.KINDS, "folders": emusaves.status(), "note": "Synced in a moment. In watch mode, "
+                "changes in this folder are picked up after the next restart."}
+
+    @app.delete("/api/emulators/{fid}")
+    def emulators_remove(fid: str):
+        from . import emusaves
+        emusaves.remove_folder(fid)
+        return {"kinds": emusaves.KINDS, "folders": emusaves.status()}
+
+    @app.post("/api/emulators/sync")
+    def emulators_sync():
+        from . import emusaves
+        emusaves.schedule(0.5)
+        return {"ok": True}
+
+    @app.put("/api/emulators/link")
+    def emulators_link(body: EmuLink):
+        from . import emusaves, links
+        f = next((x for x in emusaves.folders() if x["id"] == body.folder), None)
+        if f is None:
+            raise HTTPException(404, "That emulator folder isn't in the list any more.")
+        plat, game = emusaves.link_key(f, body.match)
+        links.set_link(plat, game, body.rom_id)
+        emusaves.schedule(0.5)
+        return {"ok": True}
 
     # region RomM device and pairing (RomM 5.4+)
     @app.get("/api/romm/device")

@@ -144,6 +144,11 @@ class RetroGameServer:
                 wanted.add(slug)
             else:
                 unresolved.append(folder)
+        try:  # platforms of the standalone emulator folders (Settings page) are needed too
+            from . import emusaves
+            wanted |= {f["platform"] for f in emusaves.folders() if f.get("platform") in slugs}
+        except Exception:  # noqa: BLE001
+            pass
         if unresolved and tuple(unresolved) != cls._last_unresolved:
             logger.info(f"Sync folders without a RomM platform (see the Platforms page): {', '.join(unresolved)}")
         cls._last_unresolved = tuple(unresolved)

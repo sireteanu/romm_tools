@@ -196,6 +196,8 @@ tr.off .pf-folder,tr.off .pf-target{opacity:.55}
 .dev .dot{width:8px;height:8px;border-radius:50%;background:var(--faint);display:inline-block}
 .dev .dot.on{background:var(--ok)}
 .pf-mode{min-width:150px;padding:5px 8px}
+.emu-row{display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.emu-add{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px}
 .pf-emu{width:140px;padding:5px 8px}
 .sv-tools{display:flex;gap:10px;flex-wrap:wrap;align-items:center;padding:0 20px 14px}
 .sv-tools .inp{width:auto}
@@ -535,6 +537,7 @@ select option, select optgroup { background: var(--panel); color: var(--text); }
       <div>
         <div class="card set-card" id="set-notify"></div>
         <div class="card set-card" id="set-romm" style="margin-top:16px"></div>
+        <div class="card set-card" id="set-emu" style="margin-top:16px"></div>
         <div class="card set-card" id="set-syncthing" style="margin-top:16px"></div>
         <div class="card set-card" id="set-access" style="margin-top:16px"></div>
         <div class="card set-card" id="set-conn" style="margin-top:16px"></div>
@@ -698,7 +701,7 @@ function openConflict(a){
       <div class="choices">
         <button class="choice" data-c="local"><span class="ic">⬆</span><span><div class="t">Keep the sync-folder version</div><div class="d">Overwrites the RomM copy. RomM's version is saved to the backups folder first.</div></span></button>
         <button class="choice" data-c="romm"><span class="ic">⬇</span><span><div class="t">Keep the RomM version</div><div class="d">Overwrites the file in your sync folder. Your local version is saved to the backups folder first.</div></span></button>
-        <button class="choice" data-c="both"><span class="ic">⧉</span><span><div class="t">Keep both</div><div class="d">Your local version is uploaded to RomM as a separate "(conflict …)" copy, then the RomM version is used everywhere.</div></span></button>
+        ${a.emu ? "" : `<button class="choice" data-c="both"><span class="ic">⧉</span><span><div class="t">Keep both</div><div class="d">Your local version is uploaded to RomM as a separate "(conflict …)" copy, then the RomM version is used everywhere.</div></span></button>`}
       </div>
     </div>
     <div class="mf"><button class="btn danger" data-c="reject">Ignore this change</button><span class="spacer"></span><button class="btn" data-c="close">Decide later</button></div>`, true);
@@ -1074,6 +1077,8 @@ function renderSettings(){
   $("#set-access").innerHTML = `<h3>Dashboard access</h3><p>Optional login for this dashboard.</p>${by("access")}`;
   $("#set-romm").innerHTML = `<h3>RomM connection</h3><div id="romm-conn" class="hlp">Loading…</div>${by("romm")}`;
   loadRommConn();
+  $("#set-emu").innerHTML = `<h3>Standalone emulators</h3><p>Saves of emulators that don't keep one file per game: DuckStation and PCSX2 memory cards, Dolphin GameCube saves, PPSSPP save folders. Map the emulator's folder into the container, then add it here. Per-game saves sync as RomM saves; cards shared by many games sync as RomM memory cards (RomM 5.4+).</p><div id="emu-box" class="hlp">Loading…</div>`;
+  loadEmu();
   const stF = d.fields.filter(f=>f.group==="syncthing" && f.key!=="SYNCTHING_FOLDERS").map(fieldHTML).join("");
   $("#set-syncthing").innerHTML = `<h3>Syncthing <span style="color:var(--muted);font-weight:400;font-size:13px">optional</span></h3><p>Lets the app wait until Syncthing has finished receiving a save before syncing it, and shows your devices on the dashboard. Read-only: nothing in Syncthing is changed.</p>${stF}
     <div class="field"><div class="lbl">Syncthing folders with your saves</div><div id="st-folders" class="hlp">${d.fields.find(f=>f.key==="SYNCTHING_URL").value ? "Loading…" : "Save the address and API key first."}</div></div>`;
@@ -1090,6 +1095,40 @@ function renderSettings(){
   });
   document.querySelectorAll("#view-set [data-reset]").forEach(b => b.onclick = () => { sv.reset.add(b.dataset.reset); delete sv.edits[b.dataset.reset]; renderSettings(); });
   renderSetSavebar();
+}
+async function loadEmu(){
+  const box = $("#emu-box"); if (!box) return;
+  try {
+    const d = await api("api/emulators");
+    const rows = d.folders.map(f => `<div class="emu-row">
+      <div style="flex:1;min-width:220px"><b>${esc(f.label)}</b> <span class="chip">${esc(f.platform)}</span><div style="font-family:var(--mono);font-size:12px;color:var(--muted);word-break:break-all">${esc(f.path)}</div>
+        <div class="hlp">${f.error ? `<span style="color:var(--bad)">${esc(f.error)}</span>` : f.last_sync ? `${plural(f.units||0,"save")} found${f.cards?` (${plural(f.cards,"memory card")})`:""} · ${f.matched||0} matched to RomM games · synced ${ago(f.last_sync)}` : "Not synced yet"}</div>
+        ${(f.unmatched||[]).length ? `<div class="hlp" style="color:var(--warn);margin-top:4px">Not matched to a RomM game: ${f.unmatched.slice(0,8).map(u=>`<button class="linkbtn" data-elink="${esc(f.id)}" data-match="${esc(u.match)}" data-title="${esc(u.title)}">${esc(u.title||u.name)}</button>`).join(", ")}${f.unmatched.length>8?` and ${f.unmatched.length-8} more`:""}</div>` : ""}</div>
+      <button class="btn small danger" data-erm="${esc(f.id)}">Remove</button></div>`).join("");
+    box.className = "";
+    box.innerHTML = (rows || `<div class="hlp" style="margin-bottom:8px">No emulator folders yet.</div>`) + `
+      <div class="emu-add"><select class="inp" id="emu-kind">${Object.entries(d.kinds).map(([k,v])=>`<option value="${k}">${esc(v.label)}</option>`).join("")}</select>
+        <input class="inp" id="emu-path" placeholder="/syncdata/emulators/duckstation/memcards" style="flex:1;min-width:220px">
+        <input class="inp" id="emu-plat" placeholder="platform" style="width:90px" title="RomM platform slug">
+        <button class="btn small primary" id="emu-addbtn">Add folder</button>${d.folders.length?` <button class="btn small" id="emu-sync">Sync now</button>`:""}</div>
+      <div class="hlp" id="emu-hint"></div>`;
+    const kind = $("#emu-kind"), hint = () => { const k = d.kinds[kind.value]; $("#emu-hint").textContent = `Point it at ${k.hint}.`; $("#emu-plat").placeholder = k.platform; };
+    kind.onchange = hint; hint();
+    $("#emu-addbtn").onclick = async () => {
+      try { const r = await api("api/emulators", {method:"POST", body:JSON.stringify({kind:kind.value, path:$("#emu-path").value, platform:$("#emu-plat").value || null})}); toast(r.note); loadEmu(); }
+      catch(e){ toast("⚠ "+e.message); }
+    };
+    if ($("#emu-sync")) $("#emu-sync").onclick = async () => { await api("api/emulators/sync", {method:"POST"}); toast("Syncing the emulator folders…"); setTimeout(loadEmu, 4000); };
+    box.querySelectorAll("[data-erm]").forEach(b => b.onclick = async () => {
+      if (!(await confirmBox({title:"Remove this emulator folder?", body:"<p style='margin:0'>Its files aren't touched; they just stop syncing.</p>", ok:"Remove", danger:true}))) return;
+      await api("api/emulators/"+encodeURIComponent(b.dataset.erm), {method:"DELETE"}); loadEmu();
+    });
+    box.querySelectorAll("[data-elink]").forEach(b => b.onclick = () => {
+      const f = d.folders.find(x=>x.id===b.dataset.elink);
+      svLink({key:"emu", game:b.dataset.title || b.dataset.match, platform:f.platform, first:{local_game:true, matched:false}},
+             async romId => { await api("api/emulators/link", {method:"PUT", body:JSON.stringify({folder:f.id, match:b.dataset.match, rom_id:romId})}); toast("Linked; syncing in a moment"); setTimeout(loadEmu, 3000); });
+    });
+  } catch(e) { box.className = "hlp"; box.textContent = e.message; }
 }
 let pairTimer = null;
 async function loadRommConn(){
@@ -1276,7 +1315,7 @@ function svMatchInfo(g){
   if (r.match_how === "title") return ` <span class="chip info" title="${esc(r.romm_file||"")}">matched by title to ${esc(r.romm_file||r.romm_name||"")}</span> <button class="linkbtn" data-link="${k}">Change</button>`;
   return "";
 }
-function svLink(g){
+function svLink(g, onPick){
   const r = g.first;
   openModal(`<div class="mh"><div><h3>Link to a RomM game</h3><div style="color:var(--muted)"><b>${esc(g.game)}</b> in <code>${esc(g.platform)}</code></div></div></div>
     <div class="mb"><p style="margin:0 0 10px;color:var(--muted)">For saves whose name doesn't match the ROM file. Its saves and states sync with the game you pick, and files from RomM are written under this name so your emulator finds them.</p>
@@ -1289,8 +1328,11 @@ function svLink(g){
     try {
       const d = await api(`api/romm/search?folder=${encodeURIComponent(g.platform)}&q=${encodeURIComponent($("#ln-q").value)}&all=${$("#ln-all").checked}`);
       $("#ln-res").innerHTML = d.roms.map(x => `<div class="row" style="padding:8px 0;border-bottom:1px solid var(--line);gap:10px"><div style="flex:1;min-width:0"><b>${esc(x.name)}</b><div style="color:var(--muted);font-family:var(--mono);font-size:12px;word-break:break-all">${esc(x.fs_name)} · ${esc(x.platform)}</div>${x.used_by && x.id!==r.rom_id?`<div style="color:var(--warn);font-size:12px">already syncs with ${esc(x.used_by)}</div>`:""}</div>
-        <button class="btn small ${x.id===r.rom_id?"":"primary"}" data-pick="${x.id}" ${x.id===r.rom_id||x.used_by?"disabled":""}>${x.id===r.rom_id?"Current":"Link"}</button></div>`).join("") || `<div class="empty">No games found. Try fewer words${$("#ln-all").checked?"":", or tick All systems"}.</div>`;
-      document.querySelectorAll("[data-pick]").forEach(b => b.onclick = () => svDoLink(g, +b.dataset.pick));
+        <button class="btn small ${x.id===r.rom_id?"":"primary"}" data-pick="${x.id}" ${x.id===r.rom_id||(x.used_by&&!onPick)?"disabled":""}>${x.id===r.rom_id?"Current":"Link"}</button></div>`).join("") || `<div class="empty">No games found. Try fewer words${$("#ln-all").checked?"":", or tick All systems"}.</div>`;
+      document.querySelectorAll("[data-pick]").forEach(b => b.onclick = async () => {
+        if (onPick) { try { await onPick(+b.dataset.pick); closeModal(); } catch(e){ toast("⚠ "+e.message); } }
+        else svDoLink(g, +b.dataset.pick);
+      });
     } catch(e) { $("#ln-res").innerHTML = `<div class="notice bad" style="margin:0">${esc(e.message)}</div>`; }
   };
   $("#ln-q").oninput = () => { clearTimeout(t); t = setTimeout(search, 200); };

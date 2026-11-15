@@ -75,7 +75,9 @@ def decide(local: Optional[LocalFile], remote: Optional[dict], baseline: Optiona
 
     local_changed = local.hash != baseline.get("local_hash")
     remote_changed = (remote.get("id") != baseline.get("romm_id")
-                      or not same_time(remote.get("updated_at"), baseline.get("romm_updated_at")))
+                      or not same_time(remote.get("updated_at"), baseline.get("romm_updated_at"))
+                      # a different content hash is a change even within the same second
+                      or bool(r_hash and baseline.get("romm_hash") and r_hash != baseline.get("romm_hash")))
     if remote_changed and r_hash and baseline.get("romm_hash") and r_hash == baseline.get("romm_hash"):
         remote_changed = False  # metadata touched, content identical
 

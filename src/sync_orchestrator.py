@@ -147,6 +147,7 @@ class SyncOrchestrator:
                 from . import recycle
                 recycle.purge(int(self.app_cfg.RECYCLE_RETENTION_DAYS))
                 self._auto_prune()
+                self._emulators()
                 return result
 
             except Exception as e:
@@ -235,10 +236,20 @@ class SyncOrchestrator:
                 logger.info(f"[ROMMSYNC] {self._fmt(summary)}")
                 STATE.sync_finished(summary)
                 self._auto_prune(rom_ids)
+                self._emulators()
             except Exception as e:
                 logger.error(f"[ROMMSYNC] Failed! {e}")
                 STATE.sync_finished(error=f"Sync failed: {e}")
 
+
+    def _emulators(self):
+        """Standalone emulator folders (Settings page), synced after the main sync."""
+        try:
+            from . import emusaves
+            if emusaves.folders():
+                emusaves.sync_all(self.srv)
+        except Exception as e:  # noqa: BLE001
+            logger.error(f"Standalone emulators: sync failed: {e}")
 
     def _auto_prune(self, rom_ids: Optional[set] = None):
         keep = int(getattr(self.app_cfg, "ROMM_KEEP_VERSIONS", 0) or 0)

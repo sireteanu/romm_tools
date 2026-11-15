@@ -416,6 +416,9 @@ class SyncEngine:
     # region execution
     def execute(self, action: PendingAction, choice: Optional[str] = None) -> Tuple[bool, str]:
         """Run an action. For conflicts, choice is 'local' | 'romm' | 'both'."""
+        if action.emu:   # a standalone emulator unit (src/emusaves.py)
+            from . import emusaves
+            return emusaves.execute(action, choice)
         with STATE.sync_lock:
             action.status = "running"
             try:

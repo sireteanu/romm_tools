@@ -192,6 +192,8 @@ def run_watch_sync(srv, lcl, app_cfg):
     for watch_dir in lcl.sync_folders:
         observer.schedule(event_handler, str(watch_dir), recursive=True)
         logger.info(f"Watching directory: {watch_dir}")
+    from src import emusaves
+    emusaves.watch(observer)   # standalone emulator folders (Settings page)
 
     # Start observer
     observer.start()

@@ -547,3 +547,8 @@ def test_folder_modes(tmp_path, monkeypatch):
     assert settings.sync_enabled("snes")
     settings.set_folder_emulator("gba", "mgba")
     assert settings.emulator_for("GBA") == "mgba"
+
+
+def test_new_content_on_romm_within_the_same_second_is_a_change():
+    d = decide(local("aaa"), remote(h="new", t=T0), base("aaa", T0, 5, rh="old"))
+    assert d.kind == "pull_update"

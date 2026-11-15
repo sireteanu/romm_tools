@@ -78,6 +78,7 @@ class PendingAction:
     romm_screenshot: Optional[str] = None   # RomM download_path of the state screenshot
     romm_api: Optional[str] = None          # RomM list the file is in ("saves"/"states"); may differ from file_type
     romm_group: Optional[list] = None       # every RomM version of this file [[api, id], ...] (deleted together)
+    emu: Optional[dict] = None              # standalone emulator unit {key, folder, unit, mode} (src/emusaves.py)
     reason: str = ""
     id: str = field(default_factory=lambda: uuid.uuid4().hex[:12])
     created_at: str = field(default_factory=utcnow_iso)
@@ -86,6 +87,8 @@ class PendingAction:
 
     @property
     def key(self) -> str:
+        if self.emu:
+            return self.emu["key"]
         return f"{self.file_type}:{self.rom_id}:{self.file_name}"
 
     def to_dict(self) -> dict:
@@ -155,7 +158,8 @@ class AppState:
                 for a in raw.get("pending", []):
                     a.pop("key", None)
                     a.pop("kind_label", None)
-                    pa = PendingAction(**a)
+                    known = PendingAction.__dataclass_fields__
+                    pa = PendingAction(**{k: v for k, v in a.items() if k in known})
                     if pa.status in ("pending", "running"):
                         pa.status = "pending"
                         self.pending[pa.id] = pa
