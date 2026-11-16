@@ -257,7 +257,7 @@ Safety rails:
 
 ### Web UI
 
-The menu groups the pages: **Dashboard**, **Saves** (Saves, Platforms, Devices, Recycle bin), **ROMs** (Frontend links, RomM library, Game names), **Logs** and **Settings**. On a phone or a narrow window it folds into one **☰ Menu** button. The dashboard opens with a short *Finish setting up* list on a new install (RomM connected, system folders found and matched to platforms, plus the optional device registration and Syncthing); its counts (*unmatched*, *conflicts*…) open the matching page or list.
+The menu groups the pages: **Dashboard**, **Saves** (Saves, Platforms, Devices, Recycle bin), **ROMs** (Frontend links, RomM library, Game names), **Logs** and **Settings**. On a phone or a narrow window it folds into one **☰ Menu** button. The dashboard opens with a short *Finish setting up* list on a new install (RomM connected, system folders found and matched to platforms, plus the optional device registration and Syncthing). **✕ Hide** closes it; it comes back only when something new is left to do. Its counts (*unmatched*, *conflicts*…) open the matching page or list.
 
 | Variable | Default | |
 |---|---|---|

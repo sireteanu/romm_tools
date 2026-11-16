@@ -62,7 +62,7 @@ startup how many system folders it found; an empty folder usually means the host
 
 The first sync starts as soon as the container is up. On a new install the dashboard shows
 **Finish setting up**: the steps still to do (a RomM platform for every system folder, say), each with
-a button that takes you there. The counts under the status (*unmatched*, *conflicts*…) can be
+a button that takes you there (**✕ Hide** closes the list). The counts under the status (*unmatched*, *conflicts*…) can be
 clicked too. Anything that changed on only one side syncs by itself. **Needs your attention** lists
 what doesn't:
 

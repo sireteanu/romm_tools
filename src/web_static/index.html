@@ -1024,11 +1024,12 @@ function renderSetup(){
   ];
   const open = steps.filter(x=>!x.done), mustDo = open.some(x=>x.need);
   const key = "setup:" + open.map(x=>x.title).join("|");
-  const show = open.length && (mustDo || !seen(key));
+  // Hide works for both lists; the list comes back only when a different step is left to do
+  const show = open.length && !seen(key);
   $("#setup-section").hidden = !show;
   const h = hashOf([show, steps.map(x=>[x.done, x.how])]); if (state.lastHash.setup === h) return; state.lastHash.setup = h;
   if (!show) return;
-  $("#setup").innerHTML = `<div class="setup-head"><div><h3>${mustDo?"Finish setting up":"A couple of optional extras"}</h3><p>${mustDo?"Saves sync once these are done.":"Everything works without these."}</p></div>${mustDo?"":`<button class="btn small" id="setup-hide">Hide</button>`}</div>
+  $("#setup").innerHTML = `<div class="setup-head"><div><h3>${mustDo?"Finish setting up":"A couple of optional extras"}</h3><p>${mustDo?"Saves sync once these are done.":"Everything works without these."}</p></div><button class="btn small" id="setup-hide" title="${mustDo?"Hide this list. The Platforms menu item still counts folders without a platform.":"Hide this list"}">✕ Hide</button></div>
     <ol class="steps">${steps.map(x=>`<li class="${x.done?"done":x.need?"todo":"opt"}"><span class="tick">${x.done?"✓":""}</span><div><b>${esc(x.title)}</b>${x.need?"":` <span class="src">optional</span>`}${x.done?"":`<div class="hlp">${esc(x.how)}</div>`}</div>${x.done?"":`<a class="btn small ${x.need?"primary":""}" href="${x.href}">${esc(x.go)}</a>`}</li>`).join("")}</ol>`;
   if ($("#setup-hide")) $("#setup-hide").onclick = () => { markSeen(key); renderSetup(); };
 }

@@ -9,6 +9,12 @@ romm_tools continues two projects; their own changelogs are kept as they were:
 
 ## [Unreleased]
 
+## [2.1.1] - 2026-11-15
+
+### Fixed
+- The dashboard's *Finish setting up* list couldn't be closed while a step was left. **✕ Hide** now
+  always closes it; it comes back only when a different step is left to do.
+
 ## [2.1.0] - 2026-11-15
 
 Works alongside Grout on handhelds (NextUI, Knulli, Batocera, muOS), and an easier page to find your
